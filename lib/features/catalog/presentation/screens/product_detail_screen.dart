@@ -1,36 +1,55 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/product_category.dart';
-import '../../domain/models/brick_product.dart';
+import '../../models/product.dart';
+import '../../providers/catalog_providers.dart';
 
-class ProductDetailScreen extends StatefulWidget {
+class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
   const ProductDetailScreen({super.key, required this.productId});
 
   @override
-  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+  ConsumerState<ProductDetailScreen> createState() =>
+      _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _quantity = 100;
 
   @override
   Widget build(BuildContext context) {
-    final product = BrickProductMock.all.cast<BrickProduct?>().firstWhere(
-          (p) => p!.id == widget.productId,
-          orElse: () => null,
-        );
+    final productAsync = ref.watch(productByIdProvider(widget.productId));
 
-    if (product == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Produit introuvable')),
-        body: const Center(child: Text('Ce produit n\'existe pas.')),
-      );
-    }
+    return productAsync.when(
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (err, _) => Scaffold(
+        appBar: AppBar(title: const Text('Erreur')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Impossible de charger le produit',
+                  style: TextStyle(color: Colors.grey.shade500)),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () =>
+                    ref.invalidate(productByIdProvider(widget.productId)),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (product) => _buildDetail(context, product),
+    );
+  }
 
-    final category = BriqueCategories.findById(product.categoryId);
-    final subCategory = BriqueCategories.findSubById(product.subCategoryId);
+  Widget _buildDetail(BuildContext context, Product product) {
+    final category = BriqueCategories.findByBackendCategory(product.category);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -129,7 +148,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                if (subCategory != null)
+                if (product.usages.isNotEmpty)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 4),
@@ -138,7 +157,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      subCategory.label,
+                                      product.usages.first,
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
@@ -159,7 +178,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   ),
                                   child: Text(
                                     product.inStock
-                                        ? 'EN STOCK (${product.stockQty})'
+                                        ? 'EN STOCK (${product.availableStock ?? 0})'
                                         : 'RUPTURE',
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -193,7 +212,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               text: TextSpan(children: [
                                 TextSpan(
                                   text:
-                                      '${product.pricePerUnit.toStringAsFixed(0)} FCFA ',
+                                      '${product.unitPrice.toStringAsFixed(0)} FCFA ',
                                   style: const TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.w800,
@@ -201,7 +220,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   ),
                                 ),
                                 TextSpan(
-                                  text: '/ ${product.unit}',
+                                  text: '/ unité',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey.shade500,
@@ -233,7 +252,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              product.description,
+                              product.description ?? 'Aucune description disponible.',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey.shade600,
@@ -246,75 +265,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                       const SizedBox(height: 12),
 
-                      // ─── Specs ──────────────────────────────────────────
-                      if (product.specs.isNotEmpty)
-                        Container(
+                      // ─── Caractéristiques ───────────────────────────────
+                      Builder(builder: (_) {
+                        final specs = <String, String>{};
+                        if (product.dimensionsLabel.isNotEmpty) specs['Dimensions'] = product.dimensionsLabel;
+                        if (product.weightKg != null) specs['Poids'] = '${product.weightKg} kg';
+                        if (product.bulkPrice != null && product.bulkMinQuantity != null)
+                          specs['Prix de gros'] = '${product.bulkPrice!.toStringAsFixed(0)} F / unité (≥ ${product.bulkMinQuantity} u)';
+                        if (product.usages.isNotEmpty) specs['Usages'] = product.usages.join(', ');
+                        if (specs.isEmpty) return const SizedBox.shrink();
+                        return Container(
                           color: Colors.white,
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Caractéristiques',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
+                              const Text('Caractéristiques',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                               const SizedBox(height: 14),
-                              ...product.specs.entries.map((e) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 36,
-                                          height: 36,
-                                          decoration: BoxDecoration(
-                                            color: (category?.color ??
-                                                    AppColors.primary)
-                                                .withValues(alpha: 0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                          child: Icon(
-                                            Icons.info_outline,
-                                            size: 18,
-                                            color: category?.color ??
-                                                AppColors.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 14),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                e.key,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey.shade500,
-                                                ),
-                                              ),
-                                              Text(
-                                                e.value,
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.textPrimary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                              ...specs.entries.map((e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 36, height: 36,
+                                      decoration: BoxDecoration(
+                                        color: (category?.color ?? AppColors.primary).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(Icons.info_outline, size: 18, color: category?.color ?? AppColors.primary),
                                     ),
-                                  )),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(e.key, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                                          Text(e.value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
                             ],
                           ),
-                        ),
+                        );
+                      }),
 
                       const SizedBox(height: 100),
                     ],
@@ -401,7 +399,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       onPressed: product.inStock ? () {} : null,
                       icon: const Icon(Icons.shopping_cart_outlined, size: 20),
                       label: Text(
-                        'Ajouter  ${(product.pricePerUnit * _quantity).toStringAsFixed(0)} F',
+                        'Ajouter  ${(product.unitPrice * _quantity).toStringAsFixed(0)} F',
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w700),
                       ),

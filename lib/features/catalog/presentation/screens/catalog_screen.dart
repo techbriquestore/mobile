@@ -1,21 +1,20 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/product_category.dart';
-import '../../domain/models/brick_product.dart';
+import '../../models/product.dart';
+import '../../providers/catalog_providers.dart';
 
-class CatalogScreen extends StatefulWidget {
+class CatalogScreen extends ConsumerStatefulWidget {
   const CatalogScreen({super.key});
 
   @override
-  State<CatalogScreen> createState() => _CatalogScreenState();
+  ConsumerState<CatalogScreen> createState() => _CatalogScreenState();
 }
 
-class _CatalogScreenState extends State<CatalogScreen> {
+class _CatalogScreenState extends ConsumerState<CatalogScreen> {
   final _searchController = TextEditingController();
-  String? _selectedCategoryId;
-  String? _selectedSubCategoryId;
-  bool _stockOnly = false;
 
   @override
   void dispose() {
@@ -23,44 +22,17 @@ class _CatalogScreenState extends State<CatalogScreen> {
     super.dispose();
   }
 
-  List<BrickProduct> get _filteredProducts {
-    final query = _searchController.text.trim();
-    List<BrickProduct> products;
-
-    if (query.isNotEmpty) {
-      products = BrickProductMock.search(query);
-    } else if (_selectedSubCategoryId != null) {
-      products = BrickProductMock.bySubCategory(_selectedSubCategoryId!);
-    } else if (_selectedCategoryId != null) {
-      products = BrickProductMock.byCategory(_selectedCategoryId!);
-    } else {
-      products = BrickProductMock.all;
-    }
-
-    if (_stockOnly) products = products.where((p) => p.inStock).toList();
-    return products;
-  }
-
-  ProductCategory? get _activeCategory =>
-      _selectedCategoryId != null
-          ? BriqueCategories.findById(_selectedCategoryId!)
-          : null;
-
-  void _selectCategory(String catId) {
-    setState(() {
-      if (_selectedCategoryId == catId) {
-        _selectedCategoryId = null;
-        _selectedSubCategoryId = null;
-      } else {
-        _selectedCategoryId = catId;
-        _selectedSubCategoryId = null;
-      }
-    });
+  void _selectCategory(String? catId) {
+    ref.read(catalogFiltersProvider.notifier).setCategory(catId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final products = _filteredProducts;
+    final filters = ref.watch(catalogFiltersProvider);
+    final productsAsync = ref.watch(catalogProductsProvider);
+    final activeCategory = filters.category != null
+        ? BriqueCategories.findById(filters.category!)
+        : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -88,7 +60,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       ),
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (v) => ref
+                            .read(catalogFiltersProvider.notifier)
+                            .setSearch(v),
                         decoration: InputDecoration(
                           hintText: 'Rechercher une brique...',
                           hintStyle: TextStyle(
@@ -99,7 +73,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               ? GestureDetector(
                                   onTap: () {
                                     _searchController.clear();
-                                    setState(() {});
+                                    ref
+                                        .read(catalogFiltersProvider.notifier)
+                                        .setSearch(null);
                                   },
                                   child: Icon(Icons.close,
                                       color: Colors.grey.shade400, size: 18),
@@ -122,24 +98,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
-                      Positioned(
-                        top: -2,
-                        right: -2,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle),
-                          child: const Center(
-                            child: Text('3',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -154,21 +112,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  // Chip "Tous"
                   _CategoryChip(
                     label: 'Tous',
                     icon: Icons.grid_view_rounded,
-                    isSelected: _selectedCategoryId == null,
+                    isSelected: filters.category == null,
                     color: AppColors.primary,
-                    onTap: () => setState(() {
-                      _selectedCategoryId = null;
-                      _selectedSubCategoryId = null;
-                    }),
+                    onTap: () => _selectCategory(null),
                   ),
                   const SizedBox(width: 8),
-                  // Chips catégories
                   ...BriqueCategories.all.map((cat) {
-                    final isSelected = _selectedCategoryId == cat.id;
+                    final isSelected = filters.category == cat.id;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: _CategoryChip(
@@ -176,24 +129,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         icon: cat.icon,
                         isSelected: isSelected,
                         color: cat.color,
-                        onTap: () => _selectCategory(cat.id),
+                        onTap: () =>
+                            _selectCategory(isSelected ? null : cat.id),
                       ),
                     );
                   }),
-                  // Chip "En stock"
                   _CategoryChip(
                     label: 'En stock',
                     icon: Icons.check_circle_outline,
-                    isSelected: _stockOnly,
+                    isSelected: filters.stockOnly,
                     color: AppColors.success,
-                    onTap: () => setState(() => _stockOnly = !_stockOnly),
+                    onTap: () => ref
+                        .read(catalogFiltersProvider.notifier)
+                        .toggleStockOnly(),
                   ),
                 ],
               ),
             ),
 
-            // ─── Sous-catégories (si catégorie sélectionnée) ───────────────
-            if (_activeCategory != null) ...[
+            // ─── Sous-catégories ───────────────────────────────────────────
+            if (activeCategory != null) ...[
               const SizedBox(height: 10),
               SizedBox(
                 height: 34,
@@ -201,28 +156,22 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    // "Tous" dans la catégorie
                     _SubCategoryChip(
                       label: 'Tous',
-                      isSelected: _selectedSubCategoryId == null,
-                      color: _activeCategory!.color,
-                      onTap: () =>
-                          setState(() => _selectedSubCategoryId = null),
+                      isSelected: true,
+                      color: activeCategory.color,
+                      onTap: () {},
                     ),
                     const SizedBox(width: 8),
-                    ..._activeCategory!.subCategories.map((sub) {
-                      final isSelected = _selectedSubCategoryId == sub.id;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _SubCategoryChip(
-                          label: sub.label,
-                          isSelected: isSelected,
-                          color: _activeCategory!.color,
-                          onTap: () => setState(
-                              () => _selectedSubCategoryId = sub.id),
-                        ),
-                      );
-                    }),
+                    ...activeCategory.subCategories.map((sub) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _SubCategoryChip(
+                            label: sub.label,
+                            isSelected: false,
+                            color: activeCategory.color,
+                            onTap: () {},
+                          ),
+                        )),
                   ],
                 ),
               ),
@@ -230,49 +179,155 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
             const SizedBox(height: 12),
 
-            // ─── Compteur résultats ────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                '${products.length} produit${products.length > 1 ? 's' : ''}',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w500),
-              ),
-            ),
-            const SizedBox(height: 8),
-
             // ─── Grille produits ───────────────────────────────────────────
             Expanded(
-              child: products.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.search_off,
-                              size: 48, color: Colors.grey.shade300),
-                          const SizedBox(height: 12),
-                          Text('Aucun produit trouvé',
-                              style: TextStyle(
-                                  color: Colors.grey.shade400, fontSize: 14)),
-                        ],
+              child: productsAsync.when(
+                loading: () => _buildLoadingGrid(),
+                error: (err, _) => _buildError(err),
+                data: (page) {
+                  final products = filters.stockOnly
+                      ? page.data.where((p) => p.inStock).toList()
+                      : page.data;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          '${page.total} produit${page.total > 1 ? 's' : ''}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500),
+                        ),
                       ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 0.62,
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: products.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.search_off,
+                                        size: 48,
+                                        color: Colors.grey.shade300),
+                                    const SizedBox(height: 12),
+                                    Text('Aucun produit trouvé',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade400,
+                                            fontSize: 14)),
+                                  ],
+                                ),
+                              )
+                            : GridView.builder(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 14,
+                                  crossAxisSpacing: 14,
+                                  childAspectRatio: 0.62,
+                                ),
+                                itemCount: products.length,
+                                itemBuilder: (context, index) =>
+                                    _ProductCard(product: products[index]),
+                              ),
                       ),
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        return _ProductCard(product: products[index]);
-                      },
-                    ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        childAspectRatio: 0.62,
+      ),
+      itemCount: 6,
+      itemBuilder: (_, __) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              flex: 5,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                        height: 12,
+                        color: Colors.grey.shade200,
+                        width: double.infinity),
+                    const SizedBox(height: 6),
+                    Container(
+                        height: 12, color: Colors.grey.shade200, width: 80),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError(Object err) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wifi_off_rounded, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text(
+              'Impossible de charger les produits',
+              style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () =>
+                  ref.invalidate(catalogProductsProvider),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Réessayer'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8))),
             ),
           ],
         ),
@@ -313,9 +368,7 @@ class _CategoryChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 15,
-                color: isSelected ? Colors.white : color),
+            Icon(icon, size: 15, color: isSelected ? Colors.white : color),
             const SizedBox(width: 6),
             Text(
               label,
@@ -354,7 +407,9 @@ class _SubCategoryChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
+          color: isSelected
+              ? color.withValues(alpha: 0.12)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(17),
           border: Border.all(
               color: isSelected ? color : Colors.grey.shade300, width: 1.2),
@@ -374,12 +429,12 @@ class _SubCategoryChip extends StatelessWidget {
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
 class _ProductCard extends StatelessWidget {
-  final BrickProduct product;
+  final Product product;
   const _ProductCard({required this.product});
 
   @override
   Widget build(BuildContext context) {
-    final category = BriqueCategories.findById(product.categoryId);
+    final category = BriqueCategories.findByBackendCategory(product.category);
     final bgColor = category?.bgColor ?? const Color(0xFFF5F5F5);
     final iconColor = category?.color ?? AppColors.primary;
     final icon = category?.icon ?? Icons.view_in_ar_rounded;
@@ -401,23 +456,25 @@ class _ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Image placeholder + badges ─────────────────────────────
+            // ── Image / placeholder ────────────────────────────────────
             Expanded(
               flex: 5,
               child: Stack(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
                     ),
-                    child: Center(
-                      child: Icon(icon, size: 56, color: iconColor),
-                    ),
+                    child: product.primaryImageUrl != null
+                        ? Image.network(
+                            product.primaryImageUrl!,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _imagePlaceholder(
+                                bgColor, icon, iconColor),
+                          )
+                        : _imagePlaceholder(bgColor, icon, iconColor),
                   ),
                   // Stock badge
                   Positioned(
@@ -427,9 +484,8 @@ class _ProductCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: product.inStock
-                            ? AppColors.success
-                            : AppColors.error,
+                        color:
+                            product.inStock ? AppColors.success : AppColors.error,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -489,7 +545,7 @@ class _ProductCard extends StatelessWidget {
                               children: [
                                 TextSpan(
                                   text:
-                                      '${product.pricePerUnit.toStringAsFixed(0)} F ',
+                                      '${product.unitPrice.toStringAsFixed(0)} F ',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
@@ -497,7 +553,7 @@ class _ProductCard extends StatelessWidget {
                                   ),
                                 ),
                                 TextSpan(
-                                  text: '/ ${product.unit}',
+                                  text: '/ unité',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.grey.shade500,
@@ -536,6 +592,14 @@ class _ProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _imagePlaceholder(Color bg, IconData icon, Color color) {
+    return Container(
+      width: double.infinity,
+      color: bg,
+      child: Center(child: Icon(icon, size: 56, color: color)),
     );
   }
 }

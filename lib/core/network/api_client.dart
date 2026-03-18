@@ -1,4 +1,5 @@
 ﻿import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../constants/api_constants.dart';
@@ -14,9 +15,12 @@ class ApiClient {
   ApiClient({
     required ConnectivityService connectivityService,
   })  : _connectivityService = connectivityService {
+    // En dev web (Chrome), utiliser localhost directement
+    final baseUrl = kIsWeb ? ApiConstants.devUrl : ApiConstants.baseUrl;
+
     _dio = Dio(
       BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
+        baseUrl: baseUrl,
         connectTimeout: ApiConstants.connectTimeout,
         receiveTimeout: ApiConstants.receiveTimeout,
         headers: {

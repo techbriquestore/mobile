@@ -1,33 +1,40 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/product_category.dart';
-import '../../domain/models/brick_product.dart';
+import '../../models/product.dart';
+import '../../providers/catalog_providers.dart';
 
-class CategoryScreen extends StatefulWidget {
+class CategoryScreen extends ConsumerStatefulWidget {
   final String categoryId;
   const CategoryScreen({super.key, required this.categoryId});
 
   @override
-  State<CategoryScreen> createState() => _CategoryScreenState();
+  ConsumerState<CategoryScreen> createState() => _CategoryScreenState();
 }
 
-class _CategoryScreenState extends State<CategoryScreen> {
-  String? _selectedSubId;
+class _CategoryScreenState extends ConsumerState<CategoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Appliquer le filtre catégorie au chargement
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(catalogFiltersProvider.notifier).setCategory(widget.categoryId);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final category = BriqueCategories.findById(widget.categoryId);
+    final productsAsync = ref.watch(catalogProductsProvider);
+
     if (category == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Catégorie introuvable')),
         body: const Center(child: Text('Catégorie non trouvée')),
       );
     }
-
-    final products = _selectedSubId != null
-        ? BrickProductMock.bySubCategory(_selectedSubId!)
-        : BrickProductMock.byCategory(widget.categoryId);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -42,7 +49,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => context.pop(),
+                    onTap: () {
+                      ref.read(catalogFiltersProvider.notifier).setCategory(null);
+                      context.pop();
+                    },
                     child: const Icon(Icons.arrow_back_ios_new,
                         size: 20, color: AppColors.textPrimary),
                   ),
@@ -54,8 +64,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       color: category.bgColor,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(category.icon,
-                        size: 20, color: category.color),
+                    child: Icon(category.icon, size: 20, color: category.color),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -70,10 +79,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        Text(
-                          '${products.length} produit${products.length > 1 ? 's' : ''}',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade500),
+                        productsAsync.when(
+                          data: (page) => Text(
+                            '${page.total} produit${page.total > 1 ? 's' : ''}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                          ),
+                          loading: () => Text('Chargement...', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                          error: (_, __) => const SizedBox.shrink(),
                         ),
                       ],
                     ),
@@ -82,7 +94,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
             ),
 
-            // ─── Sous-catégories ───────────────────────────────────────────
+            // ─── Sous-catégories (labels statiques) ───────────────────────
             Container(
               color: Colors.white,
               padding: const EdgeInsets.only(bottom: 12),
@@ -94,24 +106,20 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   children: [
                     _SubChip(
                       label: 'Tous',
-                      isSelected: _selectedSubId == null,
+                      isSelected: true,
                       color: category.color,
-                      onTap: () => setState(() => _selectedSubId = null),
+                      onTap: () {},
                     ),
                     const SizedBox(width: 8),
-                    ...category.subCategories.map((sub) {
-                      final isSelected = _selectedSubId == sub.id;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _SubChip(
-                          label: sub.label,
-                          isSelected: isSelected,
-                          color: category.color,
-                          onTap: () =>
-                              setState(() => _selectedSubId = sub.id),
-                        ),
-                      );
-                    }),
+                    ...category.subCategories.map((sub) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _SubChip(
+                            label: sub.label,
+                            isSelected: false,
+                            color: category.color,
+                            onTap: () {},
+                          ),
+                        )),
                   ],
                 ),
               ),
@@ -121,33 +129,48 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
             // ─── Grille produits ───────────────────────────────────────────
             Expanded(
-              child: products.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.inventory_2_outlined,
-                              size: 52, color: Colors.grey.shade300),
-                          const SizedBox(height: 12),
-                          Text('Aucun produit dans cette catégorie',
-                              style: TextStyle(
-                                  color: Colors.grey.shade400, fontSize: 14)),
-                        ],
+              child: productsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.wifi_off_rounded, size: 48, color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      Text('Erreur de chargement', style: TextStyle(color: Colors.grey.shade500)),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () => ref.invalidate(catalogProductsProvider),
+                        child: const Text('Réessayer'),
                       ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 0.62,
+                    ],
+                  ),
+                ),
+                data: (page) => page.data.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.inventory_2_outlined, size: 52, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('Aucun produit dans cette catégorie',
+                                style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.62,
+                        ),
+                        itemCount: page.data.length,
+                        itemBuilder: (context, i) =>
+                            _ProductCard(product: page.data[i], category: category),
                       ),
-                      itemCount: products.length,
-                      itemBuilder: (context, i) =>
-                          _ProductCard(product: products[i], category: category),
-                    ),
+              ),
             ),
           ],
         ),
@@ -200,7 +223,7 @@ class _SubChip extends StatelessWidget {
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
 class _ProductCard extends StatelessWidget {
-  final BrickProduct product;
+  final Product product;
   final ProductCategory category;
   const _ProductCard({required this.product, required this.category});
 
@@ -227,38 +250,32 @@ class _ProductCard extends StatelessWidget {
               flex: 5,
               child: Stack(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: category.bgColor,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
                     ),
-                    child: Center(
-                      child: Icon(category.icon,
-                          size: 56, color: category.color),
-                    ),
+                    child: product.primaryImageUrl != null
+                        ? Image.network(
+                            product.primaryImageUrl!,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(),
+                          )
+                        : _placeholder(),
                   ),
                   Positioned(
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: product.inStock
-                            ? AppColors.success
-                            : AppColors.error,
+                        color: product.inStock ? AppColors.success : AppColors.error,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         product.inStock ? 'EN STOCK' : 'RUPTURE',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700),
+                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
@@ -267,10 +284,7 @@ class _ProductCard extends StatelessWidget {
                     right: 8,
                     child: Text(
                       product.reference,
-                      style: TextStyle(
-                          fontSize: 9,
-                          color: category.color.withValues(alpha: 0.7),
-                          fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 9, color: category.color.withValues(alpha: 0.7), fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -287,11 +301,7 @@ class _ProductCard extends StatelessWidget {
                       product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                          height: 1.3),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary, height: 1.3),
                     ),
                     const Spacer(),
                     Row(
@@ -302,18 +312,12 @@ class _ProductCard extends StatelessWidget {
                             text: TextSpan(
                               children: [
                                 TextSpan(
-                                  text:
-                                      '${product.pricePerUnit.toStringAsFixed(0)} F ',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.primary),
+                                  text: '${product.unitPrice.toStringAsFixed(0)} F ',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.primary),
                                 ),
                                 TextSpan(
-                                  text: '/ ${product.unit}',
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey.shade500),
+                                  text: '/ unité',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                                 ),
                               ],
                             ),
@@ -323,16 +327,10 @@ class _ProductCard extends StatelessWidget {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: product.inStock
-                                ? AppColors.primary.withValues(alpha: 0.1)
-                                : Colors.grey.shade100,
+                            color: product.inStock ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey.shade100,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.add,
-                              color: product.inStock
-                                  ? AppColors.primary
-                                  : Colors.grey.shade300,
-                              size: 18),
+                          child: Icon(Icons.add, color: product.inStock ? AppColors.primary : Colors.grey.shade300, size: 18),
                         ),
                       ],
                     ),
@@ -343,6 +341,14 @@ class _ProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: double.infinity,
+      color: category.bgColor,
+      child: Center(child: Icon(category.icon, size: 56, color: category.color)),
     );
   }
 }

@@ -39,7 +39,7 @@ class BriqueCategories {
   BriqueCategories._();
 
   static const ProductCategory briquePleine = ProductCategory(
-    id: 'briques_pleines',
+    id: 'BRIQUE_PLEINE',
     label: 'Briques Pleines',
     description: 'Résistantes et compactes, idéales pour les murs porteurs',
     icon: Icons.view_in_ar_rounded,
@@ -60,7 +60,7 @@ class BriqueCategories {
   );
 
   static const ProductCategory briqueCreuse = ProductCategory(
-    id: 'briques_creuses',
+    id: 'BRIQUE_CREUSE',
     label: 'Briques Creuses',
     description: 'Légères et isolantes, parfaites pour les cloisons',
     icon: Icons.widgets_rounded,
@@ -86,7 +86,7 @@ class BriqueCategories {
   );
 
   static const ProductCategory hourdis = ProductCategory(
-    id: 'hourdis',
+    id: 'HOURDIS',
     label: 'Hourdis',
     description: 'Éléments de plancher en béton pour dalles et planchers',
     icon: Icons.layers_rounded,
@@ -113,13 +113,23 @@ class BriqueCategories {
     hourdis,
   ];
 
-  // Retrouver une catégorie par ID
+  // Retrouver une catégorie par ID (= enum backend)
   static ProductCategory? findById(String id) {
     try {
       return all.firstWhere((c) => c.id == id);
     } catch (_) {
       return null;
     }
+  }
+
+  // Retrouver une catégorie depuis l'enum backend (ex: 'BRIQUE_PLEINE')
+  // Les IDs sont directement les enums backend, sauf référactaire/décorative -> BRIQUE_PLEINE
+  static ProductCategory? findByBackendCategory(String backendCategory) {
+    if (backendCategory == 'BRIQUE_REFRACTAIRE' ||
+        backendCategory == 'BRIQUE_DECORATIVE') {
+      return briquePleine;
+    }
+    return findById(backendCategory);
   }
 
   // Retrouver une sous-catégorie par ID
