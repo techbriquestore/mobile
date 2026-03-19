@@ -1,3 +1,42 @@
+class CategoryModel {
+  final String id;
+  final String slug;
+  final String label;
+  final String? description;
+  final String? iconName;
+  final String? colorHex;
+  final String? bgColorHex;
+  final bool isActive;
+  final int sortOrder;
+  final int productCount;
+
+  const CategoryModel({
+    required this.id,
+    required this.slug,
+    required this.label,
+    this.description,
+    this.iconName,
+    this.colorHex,
+    this.bgColorHex,
+    required this.isActive,
+    required this.sortOrder,
+    this.productCount = 0,
+  });
+
+  factory CategoryModel.fromJson(Map<String, dynamic> json) => CategoryModel(
+        id: json['id'] as String,
+        slug: json['slug'] as String,
+        label: json['label'] as String,
+        description: json['description'] as String?,
+        iconName: json['iconName'] as String?,
+        colorHex: json['colorHex'] as String?,
+        bgColorHex: json['bgColorHex'] as String?,
+        isActive: json['isActive'] as bool? ?? true,
+        sortOrder: json['sortOrder'] as int? ?? 0,
+        productCount: (json['_count'] as Map<String, dynamic>?)?['products'] as int? ?? 0,
+      );
+}
+
 class ProductImage {
   final String id;
   final String url;
@@ -23,7 +62,8 @@ class Product {
   final String id;
   final String reference;
   final String name;
-  final String category;
+  final String? categoryId;
+  final CategoryModel? category;
   final String? description;
   final double unitPrice;
   final double? bulkPrice;
@@ -41,7 +81,8 @@ class Product {
     required this.id,
     required this.reference,
     required this.name,
-    required this.category,
+    this.categoryId,
+    this.category,
     this.description,
     required this.unitPrice,
     this.bulkPrice,
@@ -67,7 +108,10 @@ class Product {
       id: json['id'] as String,
       reference: json['reference'] as String,
       name: json['name'] as String,
-      category: json['category'] as String,
+      categoryId: json['categoryId'] as String?,
+      category: json['category'] != null
+          ? CategoryModel.fromJson(json['category'] as Map<String, dynamic>)
+          : null,
       description: json['description'] as String?,
       unitPrice: (json['unitPrice'] as num).toDouble(),
       bulkPrice: (json['bulkPrice'] as num?)?.toDouble(),

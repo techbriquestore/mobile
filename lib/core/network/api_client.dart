@@ -133,6 +133,11 @@ class _ConnectivityInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    // Skip connectivity check on web (connectivity_plus doesn't work reliably)
+    if (kIsWeb) {
+      handler.next(options);
+      return;
+    }
     if (!await _connectivityService.isConnected) {
       handler.reject(DioException(
         requestOptions: options,

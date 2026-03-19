@@ -2,7 +2,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/models/product_category.dart';
 import '../../models/product.dart';
 import '../../providers/catalog_providers.dart';
 
@@ -30,9 +29,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
   Widget build(BuildContext context) {
     final filters = ref.watch(catalogFiltersProvider);
     final productsAsync = ref.watch(catalogProductsProvider);
-    final activeCategory = filters.category != null
-        ? BriqueCategories.findById(filters.category!)
-        : null;
+    final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -105,77 +102,45 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
             ),
             const SizedBox(height: 14),
 
-            // ─── Catégories ────────────────────────────────────────────────
+            // ─── Catégories (dynamiques depuis backend) ────────────────────
             SizedBox(
               height: 42,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _CategoryChip(
-                    label: 'Tous',
-                    icon: Icons.grid_view_rounded,
-                    isSelected: filters.category == null,
-                    color: AppColors.primary,
-                    onTap: () => _selectCategory(null),
-                  ),
-                  const SizedBox(width: 8),
-                  ...BriqueCategories.all.map((cat) {
-                    final isSelected = filters.category == cat.id;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _CategoryChip(
-                        label: cat.label,
-                        icon: cat.icon,
-                        isSelected: isSelected,
-                        color: cat.color,
-                        onTap: () =>
-                            _selectCategory(isSelected ? null : cat.id),
-                      ),
-                    );
-                  }),
-                  _CategoryChip(
-                    label: 'En stock',
-                    icon: Icons.check_circle_outline,
-                    isSelected: filters.stockOnly,
-                    color: AppColors.success,
-                    onTap: () => ref
-                        .read(catalogFiltersProvider.notifier)
-                        .toggleStockOnly(),
-                  ),
-                ],
-              ),
-            ),
-
-            // ─── Sous-catégories ───────────────────────────────────────────
-            if (activeCategory != null) ...[
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 34,
-                child: ListView(
+              child: categoriesAsync.when(
+                loading: () => const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (categories) => ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    _SubCategoryChip(
+                    _CategoryChip(
                       label: 'Tous',
-                      isSelected: true,
-                      color: activeCategory.color,
-                      onTap: () {},
+                      colorHex: null,
+                      isSelected: filters.category == null,
+                      onTap: () => _selectCategory(null),
                     ),
                     const SizedBox(width: 8),
-                    ...activeCategory.subCategories.map((sub) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _SubCategoryChip(
-                            label: sub.label,
-                            isSelected: false,
-                            color: activeCategory.color,
-                            onTap: () {},
-                          ),
-                        )),
+                    ...categories.map((cat) {
+                      final isSelected = filters.category == cat.slug;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _CategoryChip(
+                          label: cat.label,
+                          colorHex: cat.colorHex,
+                          isSelected: isSelected,
+                          onTap: () => _selectCategory(isSelected ? null : cat.slug),
+                        ),
+                      );
+                    }),
+                    _CategoryChip(
+                      label: 'En stock',
+                      colorHex: '#4CAF50',
+                      isSelected: filters.stockOnly,
+                      onTap: () => ref.read(catalogFiltersProvider.notifier).toggleStockOnly(),
+                    ),
                   ],
                 ),
               ),
-            ],
+            ),
 
             const SizedBox(height: 12),
 
@@ -339,21 +304,29 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
 // ─── Category Chip ─────────────────────────────────────────────────────────────
 class _CategoryChip extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final String? colorHex;
   final bool isSelected;
-  final Color color;
   final VoidCallback onTap;
 
   const _CategoryChip({
     required this.label,
-    required this.icon,
+    required this.colorHex,
     required this.isSelected,
-    required this.color,
     required this.onTap,
   });
 
+  Color get _color {
+    if (colorHex == null) return AppColors.primary;
+    try {
+      return Color(int.parse('FF${colorHex!.replaceAll('#', '')}', radix: 16));
+    } catch (_) {
+      return AppColors.primary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final color = _color;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -365,20 +338,15 @@ class _CategoryChip extends StatelessWidget {
           border: Border.all(
               color: isSelected ? color : Colors.grey.shade300, width: 1.2),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: isSelected ? Colors.white : color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-              ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.white : AppColors.textPrimary,
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -434,10 +402,16 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = BriqueCategories.findByBackendCategory(product.category);
-    final bgColor = category?.bgColor ?? const Color(0xFFF5F5F5);
-    final iconColor = category?.color ?? AppColors.primary;
-    final icon = category?.icon ?? Icons.view_in_ar_rounded;
+    final cat = product.category;
+    Color bgColor = const Color(0xFFF5F5F5);
+    Color iconColor = AppColors.primary;
+    if (cat?.bgColorHex != null) {
+      try { bgColor = Color(int.parse('FF${cat!.bgColorHex!.replaceAll("#", "")}', radix: 16)); } catch (_) {}
+    }
+    if (cat?.colorHex != null) {
+      try { iconColor = Color(int.parse('FF${cat!.colorHex!.replaceAll("#", "")}', radix: 16)); } catch (_) {}
+    }
+    final icon = Icons.view_in_ar_rounded;
 
     return GestureDetector(
       onTap: () => context.push('/product/${product.id}'),

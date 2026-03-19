@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/service_locator.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
+export '../models/product.dart' show CategoryModel;
 
 // ─── Service provider ─────────────────────────────────────────────────────────
 
@@ -47,8 +48,9 @@ class CatalogFilters {
 
 // ─── Notifier filtres ─────────────────────────────────────────────────────────
 
-class CatalogFiltersNotifier extends StateNotifier<CatalogFilters> {
-  CatalogFiltersNotifier() : super(const CatalogFilters());
+class CatalogFiltersNotifier extends Notifier<CatalogFilters> {
+  @override
+  CatalogFilters build() => const CatalogFilters();
 
   void setSearch(String? value) {
     state = state.copyWith(
@@ -80,9 +82,16 @@ class CatalogFiltersNotifier extends StateNotifier<CatalogFilters> {
 }
 
 final catalogFiltersProvider =
-    StateNotifierProvider<CatalogFiltersNotifier, CatalogFilters>(
-  (ref) => CatalogFiltersNotifier(),
+    NotifierProvider<CatalogFiltersNotifier, CatalogFilters>(
+  CatalogFiltersNotifier.new,
 );
+
+// ─── Provider catégories ──────────────────────────────────────────────────────
+
+final categoriesProvider = FutureProvider<List<CategoryModel>>((ref) async {
+  final service = ref.read(productServiceProvider);
+  return service.getCategories(activeOnly: true);
+});
 
 // ─── Provider liste produits ──────────────────────────────────────────────────
 
@@ -92,7 +101,7 @@ final catalogProductsProvider = FutureProvider.autoDispose<ProductsPage>((ref) a
 
   return service.getProducts(
     search: filters.search,
-    category: filters.category,
+    categorySlug: filters.category,
     page: filters.page,
     pageSize: filters.pageSize,
   );
