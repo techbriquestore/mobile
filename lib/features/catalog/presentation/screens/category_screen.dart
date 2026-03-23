@@ -2,9 +2,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/models/product_category.dart';
 import '../../models/product.dart';
 import '../../providers/catalog_providers.dart';
+
+Color _hexColor(String? hex, Color fallback) {
+  if (hex == null) return fallback;
+  try {
+    return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+  } catch (_) {
+    return fallback;
+  }
+}
 
 class CategoryScreen extends ConsumerStatefulWidget {
   final String categoryId;
@@ -26,15 +34,14 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final category = BriqueCategories.findById(widget.categoryId);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final category = categoriesAsync.asData?.value
+        .where((c) => c.slug == widget.categoryId || c.id == widget.categoryId)
+        .firstOrNull;
     final productsAsync = ref.watch(catalogProductsProvider);
 
-    if (category == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Catégorie introuvable')),
-        body: const Center(child: Text('Catégorie non trouvée')),
-      );
-    }
+    final catColor = _hexColor(category?.colorHex, AppColors.primary);
+    final catBgColor = _hexColor(category?.bgColorHex, const Color(0xFFF5F5F5));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -61,10 +68,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: category.bgColor,
+                      color: catBgColor,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(category.icon, size: 20, color: category.color),
+                    child: Icon(Icons.view_in_ar_rounded, size: 20, color: catColor),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -72,7 +79,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          category.label,
+                          category?.label ?? widget.categoryId,
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -94,7 +101,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               ),
             ),
 
-            // ─── Sous-catégories (labels statiques) ───────────────────────
+            // Chip "Tous" uniquement (sous-catégories supprimées)
             Container(
               color: Colors.white,
               padding: const EdgeInsets.only(bottom: 12),
@@ -107,19 +114,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     _SubChip(
                       label: 'Tous',
                       isSelected: true,
-                      color: category.color,
+                      color: catColor,
                       onTap: () {},
                     ),
-                    const SizedBox(width: 8),
-                    ...category.subCategories.map((sub) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _SubChip(
-                            label: sub.label,
-                            isSelected: false,
-                            color: category.color,
-                            onTap: () {},
-                          ),
-                        )),
                   ],
                 ),
               ),
@@ -168,7 +165,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                         itemCount: page.data.length,
                         itemBuilder: (context, i) =>
-                            _ProductCard(product: page.data[i], category: category),
+                            _ProductCard(product: page.data[i], catColor: catColor, catBgColor: catBgColor),
                       ),
               ),
             ),
@@ -221,16 +218,17 @@ class _SubChip extends StatelessWidget {
   }
 }
 
-// ─── Product Card ─────────────────────────────────────────────────────────────
+// Product Card
 class _ProductCard extends StatelessWidget {
   final Product product;
-  final ProductCategory category;
-  const _ProductCard({required this.product, required this.category});
+  final Color catColor;
+  final Color catBgColor;
+  const _ProductCard({required this.product, required this.catColor, required this.catBgColor});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/product/${product.id}'),
+      onTap: () => context.push('/catalog/product/${product.id}'),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -284,7 +282,7 @@ class _ProductCard extends StatelessWidget {
                     right: 8,
                     child: Text(
                       product.reference,
-                      style: TextStyle(fontSize: 9, color: category.color.withValues(alpha: 0.7), fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 9, color: catColor.withValues(alpha: 0.7), fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -347,8 +345,8 @@ class _ProductCard extends StatelessWidget {
   Widget _placeholder() {
     return Container(
       width: double.infinity,
-      color: category.bgColor,
-      child: Center(child: Icon(category.icon, size: 56, color: category.color)),
+      color: catBgColor,
+      child: Center(child: Icon(Icons.view_in_ar_rounded, size: 56, color: catColor)),
     );
   }
 }

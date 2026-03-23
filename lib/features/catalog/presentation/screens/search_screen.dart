@@ -246,7 +246,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               final p = products[index];
               final cat = p.category;
               return GestureDetector(
-                onTap: () => context.push('/product/${p.id}'),
+                onTap: () => context.push('/catalog/product/${p.id}'),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),

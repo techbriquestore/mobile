@@ -37,7 +37,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── Top bar ───────────────────────────────────────────────────
+            // Top bar 
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
@@ -301,7 +301,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
   }
 }
 
-// ─── Category Chip ─────────────────────────────────────────────────────────────
+//  Category Chip 
 class _CategoryChip extends StatelessWidget {
   final String label;
   final String? colorHex;
@@ -353,7 +353,7 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-// ─── Sub-Category Chip ────────────────────────────────────────────────────────
+//  Sub-Category Chip 
 class _SubCategoryChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -395,7 +395,7 @@ class _SubCategoryChip extends StatelessWidget {
   }
 }
 
-// ─── Product Card ─────────────────────────────────────────────────────────────
+//  Product Card 
 class _ProductCard extends StatelessWidget {
   final Product product;
   const _ProductCard({required this.product});
@@ -414,7 +414,7 @@ class _ProductCard extends StatelessWidget {
     final icon = Icons.view_in_ar_rounded;
 
     return GestureDetector(
-      onTap: () => context.push('/product/${product.id}'),
+      onTap: () => context.push('/catalog/product/${product.id}'),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -577,3 +577,4 @@ class _ProductCard extends StatelessWidget {
     );
   }
 }
+
