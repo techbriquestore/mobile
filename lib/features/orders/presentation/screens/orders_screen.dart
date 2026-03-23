@@ -13,10 +13,12 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   OrderStatus? _selectedStatus;
+  // TODO: Charger les commandes depuis le backend
+  final List<OrderModel> _orders = [];
 
   List<OrderModel> get _filteredOrders {
-    if (_selectedStatus == null) return OrderMockData.orders;
-    return OrderMockData.orders.where((o) => o.status == _selectedStatus).toList();
+    if (_selectedStatus == null) return _orders;
+    return _orders.where((o) => o.status == _selectedStatus).toList();
   }
 
   @override
