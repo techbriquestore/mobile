@@ -2,9 +2,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/models/product_category.dart';
 import '../../models/product.dart';
 import '../../providers/catalog_providers.dart';
+
+Color _hexColor(String? hex, Color fallback) {
+  if (hex == null) return fallback;
+  try {
+    return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+  } catch (_) {
+    return fallback;
+  }
+}
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -49,7 +57,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildDetail(BuildContext context, Product product) {
-    final category = BriqueCategories.findByBackendCategory(product.category);
+    final cat = product.category;
+    final catColor = _hexColor(cat?.colorHex, AppColors.primary);
+    final catBgColor = _hexColor(cat?.bgColorHex, const Color(0xFFF5F5F5));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -62,7 +72,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 SliverAppBar(
                   expandedHeight: 260,
                   pinned: true,
-                  backgroundColor: category?.bgColor ?? const Color(0xFFF5F5F5),
+                  backgroundColor: catBgColor,
                   leading: GestureDetector(
                     onTap: () => context.pop(),
                     child: Container(
@@ -107,9 +117,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   flexibleSpace: FlexibleSpaceBar(
                     background: Center(
                       child: Icon(
-                        category?.icon ?? Icons.view_in_ar_rounded,
+                        Icons.view_in_ar_rounded,
                         size: 100,
-                        color: category?.color ?? AppColors.primary,
+                        color: catColor,
                       ),
                     ),
                   ),
@@ -134,16 +144,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (category?.color ?? AppColors.primary)
-                                        .withValues(alpha: 0.1),
+                                    color: catColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    category?.label ?? '',
+                                    cat?.label ?? '',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: category?.color ?? AppColors.primary,
+                                      color: catColor,
                                     ),
                                   ),
                                 ),
@@ -291,10 +300,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     Container(
                                       width: 36, height: 36,
                                       decoration: BoxDecoration(
-                                        color: (category?.color ?? AppColors.primary).withValues(alpha: 0.1),
+                                        color: catColor.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
-                                      child: Icon(Icons.info_outline, size: 18, color: category?.color ?? AppColors.primary),
+                                      child: Icon(Icons.info_outline, size: 18, color: catColor),
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(

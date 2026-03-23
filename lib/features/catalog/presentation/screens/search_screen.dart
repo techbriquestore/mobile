@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/models/product_category.dart';
 import '../../models/product.dart';
 import '../../providers/catalog_providers.dart';
 
@@ -28,6 +27,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(catalogProductsProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final categories = categoriesAsync.asData?.value ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -91,19 +92,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8, runSpacing: 8,
-                    children: BriqueCategories.all.map((cat) {
-                      final selected = _selectedCategory == cat.id;
+                    children: categories.map((cat) {
+                      final selected = _selectedCategory == cat.slug;
+                      Color catColor = AppColors.primary;
+                      if (cat.colorHex != null) {
+                        try { catColor = Color(int.parse('FF${cat.colorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+                      }
                       return GestureDetector(
                         onTap: () {
-                          setState(() => _selectedCategory = selected ? null : cat.id);
-                          ref.read(catalogFiltersProvider.notifier).setCategory(selected ? null : cat.id);
+                          setState(() => _selectedCategory = selected ? null : cat.slug);
+                          ref.read(catalogFiltersProvider.notifier).setCategory(selected ? null : cat.slug);
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: selected ? AppColors.primary : Colors.white,
+                            color: selected ? catColor : Colors.white,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: selected ? AppColors.primary : Colors.grey.shade300),
+                            border: Border.all(color: selected ? catColor : Colors.grey.shade300),
                           ),
                           child: Text(cat.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: selected ? Colors.white : AppColors.textSecondary)),
                         ),
@@ -137,7 +142,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           // ─── Contenu ──────────────────────────────────────────────────
           Expanded(
             child: _searchCtrl.text.isEmpty
-                ? _buildSuggestions()
+                ? _buildSuggestions(categories)
                 : productsAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (_, __) => Center(
@@ -161,7 +166,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildSuggestions() {
+  Widget _buildSuggestions(List<CategoryModel> categories) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -171,29 +176,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           const SizedBox(height: 12),
           Wrap(
             spacing: 8, runSpacing: 8,
-            children: BriqueCategories.all.map((cat) => GestureDetector(
-              onTap: () {
-                setState(() => _selectedCategory = cat.id);
-                ref.read(catalogFiltersProvider.notifier).setCategory(cat.id);
-                _searchCtrl.text = cat.label;
-                ref.read(catalogFiltersProvider.notifier).setSearch(cat.label);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: cat.bgColor,
-                  borderRadius: BorderRadius.circular(20),
+            children: categories.map((cat) {
+              Color catColor = AppColors.primary;
+              Color catBg = const Color(0xFFFFF3E6);
+              if (cat.colorHex != null) {
+                try { catColor = Color(int.parse('FF${cat.colorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+              }
+              if (cat.bgColorHex != null) {
+                try { catBg = Color(int.parse('FF${cat.bgColorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+              }
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedCategory = cat.slug);
+                  ref.read(catalogFiltersProvider.notifier).setCategory(cat.slug);
+                  _searchCtrl.text = cat.label;
+                  ref.read(catalogFiltersProvider.notifier).setSearch(cat.label);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: catBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.view_in_ar_rounded, size: 16, color: catColor),
+                      const SizedBox(width: 6),
+                      Text(cat.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: catColor)),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(cat.icon, size: 16, color: cat.color),
-                    const SizedBox(width: 6),
-                    Text(cat.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cat.color)),
-                  ],
-                ),
-              ),
-            )).toList(),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -229,7 +244,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, index) {
               final p = products[index];
-              final cat = BriqueCategories.findByBackendCategory(p.category);
+              final cat = p.category;
               return GestureDetector(
                 onTap: () => context.push('/product/${p.id}'),
                 child: Container(
@@ -252,7 +267,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           children: [
                             Text(p.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                             const SizedBox(height: 2),
-                            Text('Réf: ${p.reference} • ${cat?.label ?? p.category}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                            Text('Réf: ${p.reference}${cat != null ? ' • ${cat.label}' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                           ],
                         ),
                       ),
@@ -268,11 +283,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _iconPlaceholder(ProductCategory? cat) {
+  Widget _iconPlaceholder(CategoryModel? cat) {
+    Color bgColor = Colors.grey.shade100;
+    Color iconColor = AppColors.primary;
+    if (cat?.bgColorHex != null) {
+      try { bgColor = Color(int.parse('FF${cat!.bgColorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+    }
+    if (cat?.colorHex != null) {
+      try { iconColor = Color(int.parse('FF${cat!.colorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+    }
     return Container(
       width: 52, height: 52,
-      decoration: BoxDecoration(color: cat?.bgColor ?? Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-      child: Icon(cat?.icon ?? Icons.view_in_ar_rounded, color: cat?.color ?? AppColors.primary, size: 26),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10)),
+      child: Icon(Icons.view_in_ar_rounded, color: iconColor, size: 26),
     );
   }
 }
