@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../catalog/models/product.dart';
+import '../../../catalog/providers/catalog_providers.dart';
 
-class HomeScreen extends StatefulWidget {
+Color _hexColor(String? hex, Color fallback) {
+  if (hex == null) return fallback;
+  try {
+    return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+  } catch (_) {
+    return fallback;
+  }
+}
+
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final categories = categoriesAsync.asData?.value ?? [];
+    final productsAsync = ref.watch(catalogProductsProvider);
 
-class _HomeScreenState extends State<HomeScreen> {
-  final _surfaceController = TextEditingController(text: '25');
-  String _selectedType = 'Pleine 20cm';
-
-  @override
-  void dispose() {
-    _surfaceController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
@@ -172,67 +174,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ─── Catégories ───
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Catégories',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => context.push('/catalog'),
-                    child: const Text(
-                      'Voir tout',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: _CategoryCard(icon: Icons.view_in_ar, label: 'Briques pleines', onTap: () => context.push('/catalog'))),
-                  const SizedBox(width: 12),
-                  Expanded(child: _CategoryCard(icon: Icons.widgets_outlined, label: 'Briques creuses', onTap: () => context.push('/catalog'))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: _CategoryCard(icon: Icons.local_fire_department_outlined, label: 'Réfractaires', onTap: () => context.push('/catalog'))),
-                  const SizedBox(width: 12),
-                  Expanded(child: _CategoryCard(icon: Icons.auto_awesome_outlined, label: 'Décoratives', onTap: () => context.push('/catalog'))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
             // ─── Accès rapides ───
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Accès rapide', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                ],
-              ),
+              child: const Text('Accès rapide', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -255,195 +200,68 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ─── Mini calculateur ───
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.calculate_outlined, color: AppColors.primary, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Calculateur de quantité',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                'Estimez vos besoins rapidement',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textHint,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        // Surface
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'SURFACE (M²)',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade500,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                height: 44,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF7F7F7),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: TextField(
-                                  controller: _surfaceController,
-                                  keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  decoration: InputDecoration(
-                                    border: InputBorder.none,
-                                    hintText: 'ex: 25',
-                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Type
-                        Expanded(
-                          flex: 5,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'TYPE',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade500,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                height: 44,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF7F7F7),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedType,
-                                    isExpanded: true,
-                                    icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade500, size: 20),
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-                                    items: const [
-                                      DropdownMenuItem(value: 'Pleine 20cm', child: Text('Pleine 20cm')),
-                                      DropdownMenuItem(value: 'Pleine 15cm', child: Text('Pleine 15cm')),
-                                      DropdownMenuItem(value: 'Creuse 20cm', child: Text('Creuse 20cm')),
-                                      DropdownMenuItem(value: 'Réfractaire', child: Text('Réfractaire')),
-                                    ],
-                                    onChanged: (v) {
-                                      if (v != null) setState(() => _selectedType = v);
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: () => context.go('/simulator'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Calculer mon besoin',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // ─── Meilleures ventes ───
+            // ─── Catégories (depuis backend) ───
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Meilleures ventes',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+                    'Catégories',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                   ),
                   GestureDetector(
                     onTap: () => context.push('/catalog'),
-                    child: const Text(
-                      'Tout voir',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
+                    child: const Text('Voir tout', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primary)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (categoriesAsync.isLoading)
+              const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+            else if (categories.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Aucune catégorie', style: TextStyle(color: Colors.grey.shade500)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: categories.take(4).map((cat) {
+                    final color = _hexColor(cat.colorHex, AppColors.primary);
+                    final bgColor = _hexColor(cat.bgColorHex, AppColors.primary.withValues(alpha: 0.1));
+                    return SizedBox(
+                      width: (MediaQuery.of(context).size.width - 44) / 2,
+                      child: _CategoryCard(
+                        icon: Icons.view_in_ar_rounded,
+                        label: cat.label,
+                        color: color,
+                        bgColor: bgColor,
+                        onTap: () => context.push('/catalog/category/${cat.slug}'),
                       ),
-                    ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            const SizedBox(height: 24),
+
+            // ─── Populaires (depuis backend) ───
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Populaires',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  ),
+                  GestureDetector(
+                    onTap: () => context.push('/catalog'),
+                    child: const Text('Tout voir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primary)),
                   ),
                 ],
               ),
@@ -451,54 +269,24 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 14),
             SizedBox(
               height: 210,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: const [
-                  _BestSellerCard(
-                    name: 'Brique Rouge Clas...',
-                    rating: 4.8,
-                    reviewCount: 120,
-                    price: 350,
-                    unit: 'unité',
-                    bgColor: Color(0xFFFFF3E0),
-                    iconColor: Color(0xFFE65100),
-                    icon: Icons.view_in_ar,
-                  ),
-                  SizedBox(width: 12),
-                  _BestSellerCard(
-                    name: 'Brique Grise Loft',
-                    rating: 4.5,
-                    reviewCount: 89,
-                    price: 450,
-                    unit: 'unité',
-                    bgColor: Color(0xFFECEFF1),
-                    iconColor: Color(0xFF546E7A),
-                    icon: Icons.view_in_ar,
-                  ),
-                  SizedBox(width: 12),
-                  _BestSellerCard(
-                    name: 'Ciment Multi-usage',
-                    rating: 4.9,
-                    reviewCount: 200,
-                    price: 5200,
-                    unit: 'sac',
-                    bgColor: Color(0xFFE8F5E9),
-                    iconColor: Color(0xFF2E7D32),
-                    icon: Icons.inventory_2,
-                  ),
-                  SizedBox(width: 12),
-                  _BestSellerCard(
-                    name: 'Sable Maçonnerie',
-                    rating: 4.6,
-                    reviewCount: 75,
-                    price: 35000,
-                    unit: 'm3',
-                    bgColor: Color(0xFFFCE4EC),
-                    iconColor: Color(0xFFC62828),
-                    icon: Icons.landscape,
-                  ),
-                ],
+              child: productsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => Center(child: Text('Erreur de chargement', style: TextStyle(color: Colors.grey.shade500))),
+                data: (page) {
+                  if (page.data.isEmpty) {
+                    return Center(child: Text('Aucun produit', style: TextStyle(color: Colors.grey.shade500)));
+                  }
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: page.data.take(6).length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) {
+                      final product = page.data[i];
+                      return _ProductCard(product: product, onTap: () => context.push('/catalog/product/${product.id}'));
+                    },
+                  );
+                },
               ),
             ),
             const SizedBox(height: 24),
@@ -544,15 +332,19 @@ class _QuickAccessCard extends StatelessWidget {
   }
 }
 
-// ─── Carte catégorie ───
+// Carte catégorie
 class _CategoryCard extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
+  final Color bgColor;
   final VoidCallback onTap;
 
   const _CategoryCard({
     required this.icon,
     required this.label,
+    required this.color,
+    required this.bgColor,
     required this.onTap,
   });
 
@@ -572,10 +364,10 @@ class _CategoryCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: bgColor,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppColors.primary, size: 24),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 10),
             Text(
@@ -585,6 +377,9 @@ class _CategoryCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -593,141 +388,105 @@ class _CategoryCard extends StatelessWidget {
   }
 }
 
-// ─── Carte meilleure vente ───
-class _BestSellerCard extends StatelessWidget {
-  final String name;
-  final double rating;
-  final int reviewCount;
-  final int price;
-  final String unit;
-  final Color bgColor;
-  final Color iconColor;
-  final IconData icon;
+// Carte produit populaire
+class _ProductCard extends StatelessWidget {
+  final Product product;
+  final VoidCallback onTap;
 
-  const _BestSellerCard({
-    required this.name,
-    required this.rating,
-    required this.reviewCount,
-    required this.price,
-    required this.unit,
-    required this.bgColor,
-    required this.iconColor,
-    required this.icon,
-  });
-
-  String _formatPrice(int price) {
-    final str = price.toString();
-    final buffer = StringBuffer();
-    for (int i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(' ');
-      buffer.write(str[i]);
-    }
-    return buffer.toString();
-  }
+  const _ProductCard({required this.product, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 155,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image
-          Container(
-            height: 100,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+    final cat = product.category;
+    Color bgColor = const Color(0xFFF5F5F5);
+    Color iconColor = AppColors.primary;
+    if (cat?.bgColorHex != null) {
+      try { bgColor = Color(int.parse('FF${cat!.bgColorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+    }
+    if (cat?.colorHex != null) {
+      try { iconColor = Color(int.parse('FF${cat!.colorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 155,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image placeholder
+            Container(
+              height: 100,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Center(child: Icon(Icons.view_in_ar_rounded, size: 48, color: iconColor)),
+                  if (product.inStock)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(4)),
+                        child: const Text('EN STOCK', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ),
+                    ),
+                ],
               ),
             ),
-            child: Center(
-              child: Icon(icon, size: 48, color: iconColor),
-            ),
-          ),
-          // Info
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+            // Info
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary, height: 1.2),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.star, size: 14, color: AppColors.primary),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$rating',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                  const SizedBox(height: 4),
+                  Text(
+                    'Réf: ${product.reference}',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${product.unitPrice.toStringAsFixed(0)} F',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.primary),
+                        ),
                       ),
-                    ),
-                    Text(
-                      ' ($reviewCount)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: product.inStock ? AppColors.primary : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.add, color: product.inStock ? Colors.white : Colors.grey.shade500, size: 16),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(children: [
-                          TextSpan(
-                            text: '${_formatPrice(price)} FCFA',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '/$unit',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ]),
-                      ),
-                    ),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 16),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
