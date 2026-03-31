@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../models/product.dart';
 import '../../providers/catalog_providers.dart';
+import '../../../cart/data/providers/cart_provider.dart';
 
 Color _hexColor(String? hex, Color fallback) {
   if (hex == null) return fallback;
@@ -25,6 +26,14 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _quantity = 100;
+  int _currentImageIndex = 0;
+  final _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,27 +110,98 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                     GestureDetector(
                       onTap: () => context.push('/cart'),
-                      child: Container(
-                        margin: const EdgeInsets.all(8),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.shopping_cart_outlined,
-                            size: 20, color: AppColors.textPrimary),
+                      child: Stack(
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.all(8),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.shopping_cart_outlined,
+                                size: 20, color: AppColors.textPrimary),
+                          ),
+                          if (ref.watch(cartProvider).itemCount > 0)
+                            Positioned(
+                              right: 4, top: 4,
+                              child: Container(
+                                width: 16, height: 16,
+                                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                                child: Center(child: Text(
+                                  '${ref.watch(cartProvider).itemCount}',
+                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
+                                )),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
-                    background: Center(
-                      child: Icon(
-                        Icons.view_in_ar_rounded,
-                        size: 100,
-                        color: catColor,
-                      ),
-                    ),
+                    background: product.images.isEmpty
+                        ? Center(
+                            child: Icon(
+                              Icons.view_in_ar_rounded,
+                              size: 100,
+                              color: catColor,
+                            ),
+                          )
+                        : Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              PageView.builder(
+                                controller: _pageController,
+                                itemCount: product.images.length,
+                                onPageChanged: (i) => setState(() => _currentImageIndex = i),
+                                itemBuilder: (context, index) {
+                                  final img = product.images[index];
+                                  return Image.network(
+                                    img.url,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: Icon(Icons.broken_image_outlined, size: 60, color: Colors.grey.shade400),
+                                    ),
+                                    loadingBuilder: (_, child, progress) {
+                                      if (progress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value: progress.expectedTotalBytes != null
+                                              ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                              : null,
+                                          strokeWidth: 2,
+                                          color: catColor,
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                              if (product.images.length > 1)
+                                Positioned(
+                                  bottom: 12,
+                                  left: 0,
+                                  right: 0,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(product.images.length, (i) {
+                                      return Container(
+                                        width: _currentImageIndex == i ? 20 : 8,
+                                        height: 8,
+                                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                                        decoration: BoxDecoration(
+                                          color: _currentImageIndex == i
+                                              ? Colors.white
+                                              : Colors.white.withValues(alpha: 0.4),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ),
+                            ],
+                          ),
                   ),
                 ),
 
@@ -175,21 +255,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     ),
                                   ),
                                 const Spacer(),
-                                // Stock badge
+                                // Disponible badge
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: product.inStock
-                                        ? AppColors.success
-                                        : AppColors.error,
+                                    color: AppColors.success,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Text(
-                                    product.inStock
-                                        ? 'EN STOCK (${product.availableStock ?? 0})'
-                                        : 'RUPTURE',
-                                    style: const TextStyle(
+                                  child: const Text(
+                                    'DISPONIBLE',
+                                    style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
@@ -405,7 +481,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   child: SizedBox(
                     height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: product.inStock ? () {} : null,
+                      onPressed: () {
+                        ref
+                            .read(cartProvider.notifier)
+                            .addProduct(product, quantity: _quantity);
+                        // Navigate directly to cart
+                        context.push('/cart');
+                      },
                       icon: const Icon(Icons.shopping_cart_outlined, size: 20),
                       label: Text(
                         'Ajouter  ${(product.unitPrice * _quantity).toStringAsFixed(0)} F',

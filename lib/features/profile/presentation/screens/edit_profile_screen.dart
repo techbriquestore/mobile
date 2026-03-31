@@ -1,21 +1,24 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/providers/auth_providers.dart';
 
-class EditProfileScreen extends StatefulWidget {
+class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() => _EditProfileScreenState();
+  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _firstNameCtrl = TextEditingController(text: 'Marc');
-  final _lastNameCtrl = TextEditingController(text: 'Lefebvre');
-  final _phoneCtrl = TextEditingController(text: '07 12 34 56 78');
-  final _emailCtrl = TextEditingController(text: 'm.lefebvre@construction-btp.fr');
-  final _companyCtrl = TextEditingController(text: 'BTP Construction SARL');
+class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
+  late TextEditingController _firstNameCtrl;
+  late TextEditingController _lastNameCtrl;
+  late TextEditingController _phoneCtrl;
+  late TextEditingController _emailCtrl;
+  late TextEditingController _companyCtrl;
   bool _isSaving = false;
+  bool _initialized = false;
 
   @override
   void dispose() {
@@ -25,6 +28,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailCtrl.dispose();
     _companyCtrl.dispose();
     super.dispose();
+  }
+  
+  void _initControllers() {
+    if (_initialized) return;
+    final user = ref.read(authProvider).user;
+    _firstNameCtrl = TextEditingController(text: user?.firstName ?? '');
+    _lastNameCtrl = TextEditingController(text: user?.lastName ?? '');
+    _phoneCtrl = TextEditingController(text: user?.phone ?? '');
+    _emailCtrl = TextEditingController(text: user?.email ?? '');
+    _companyCtrl = TextEditingController(text: user?.companyName ?? '');
+    _initialized = true;
   }
 
   InputDecoration _inputDeco(String hint, IconData icon) {
@@ -41,6 +55,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _initControllers();
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(

@@ -1,15 +1,22 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/providers/auth_providers.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // TODO: remplacer par les données réelles du provider utilisateur
-    const String userName = 'Marc Lefebvre';
-    const String userEmail = 'm.lefebvre@construction-btp.fr';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+    
+    // Build user display name and email from auth state
+    final String userName = user != null 
+        ? '${user.firstName} ${user.lastName}'
+        : 'Utilisateur';
+    final String userEmail = user?.email ?? user?.phone ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -70,9 +77,9 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     userName,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
@@ -105,11 +112,6 @@ class ProfileScreen extends StatelessWidget {
                   icon: Icons.inventory_2_outlined,
                   label: 'Mes commandes',
                   onTap: () => context.go('/orders'),
-                ),
-                _ProfileMenuItem(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Mes pré-commandes',
-                  onTap: () => context.push('/preorders'),
                 ),
                 _ProfileMenuItem(
                   icon: Icons.location_on_outlined,
@@ -169,9 +171,11 @@ class ProfileScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 50,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    // TODO: appeler le provider auth logout
-                    context.go('/login');
+                  onPressed: () async {
+                    await ref.read(authProvider.notifier).logout();
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
                   },
                   icon: const Icon(Icons.logout, size: 20),
                   label: const Text(

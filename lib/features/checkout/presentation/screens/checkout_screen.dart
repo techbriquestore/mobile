@@ -1,15 +1,18 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/providers/auth_providers.dart';
+import '../../../cart/data/providers/cart_provider.dart';
 
-class CheckoutScreen extends StatefulWidget {
+class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
   @override
-  State<CheckoutScreen> createState() => _CheckoutScreenState();
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   int _selectedAddress = 0;
   int _selectedDelivery = 0;
 
@@ -19,15 +22,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   int _installments = 3;
   bool _acceptedCGV = false;
 
-  // Mock data
-  static const double _subtotal = 860000;
-  static const double _deliveryFee = 15000;
-  double get _total => _subtotal + _deliveryFee;
-  double get _firstPayment => _paymentType == 0 ? _total : (_total * 0.15).ceilToDouble();
-  double get _installmentAmount => _paymentType == 0 ? 0 : ((_total - _firstPayment) / (_installments - 1)).ceilToDouble();
+  // Delivery fees by mode
+  static const List<double> _deliveryFees = [15000, 35000, 0];
+  double get _deliveryFee => _deliveryFees[_selectedDelivery];
+  double _getTotal(double subtotal) => subtotal + _deliveryFee;
+  double _getFirstPayment(double total) => _paymentType == 0 ? total : (total * 0.15).ceilToDouble();
+  double _getInstallmentAmount(double total, double firstPayment) => 
+      _paymentType == 0 ? 0 : ((total - firstPayment) / (_installments - 1)).ceilToDouble();
   bool get _hasFees => _installments > 4;
-  double get _fees => _hasFees ? (_total * 0.02) : 0;
-  double get _grandTotal => _total + _fees;
+  double _getFees(double total) => _hasFees ? (total * 0.02) : 0;
+  double _getGrandTotal(double total) => total + _getFees(total);
 
   final _addresses = [
     {'label': 'Chantier Cocody', 'address': 'Cocody Riviera Palmeraie, Abidjan', 'icon': Icons.construction},
@@ -42,6 +46,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final cart = ref.watch(cartProvider);
+    final subtotal = ref.watch(cartSubtotalProvider);
+    
+    // Redirect to login if not authenticated
+    if (!authState.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(const SnackBar(
+            content: Text('Veuillez vous connecter pour passer commande'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ));
+        context.go('/login');
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final total = _getTotal(subtotal);
+    final firstPayment = _getFirstPayment(total);
+    final installmentAmount = _getInstallmentAmount(total, firstPayment);
+    final fees = _getFees(total);
+    final grandTotal = _getGrandTotal(total);
+
+    // Redirect to cart if empty
+    if (cart.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go('/cart');
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
@@ -161,16 +197,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  _SummaryRow(label: '1er versement (15%)', value: '${_fmt(_firstPayment)} FCFA', bold: true),
+                                  _SummaryRow(label: '1er versement (15%)', value: '${_fmt(firstPayment)} FCFA', bold: true),
                                   const SizedBox(height: 6),
-                                  _SummaryRow(label: '${_installments - 1} échéances de', value: '${_fmt(_installmentAmount)} FCFA'),
+                                  _SummaryRow(label: '${_installments - 1} échéances de', value: '${_fmt(installmentAmount)} FCFA'),
                                   if (_hasFees) ...[
                                     const SizedBox(height: 6),
-                                    _SummaryRow(label: 'Frais de gestion (2%)', value: '${_fmt(_fees)} FCFA', color: AppColors.error),
+                                    _SummaryRow(label: 'Frais de gestion (2%)', value: '${_fmt(fees)} FCFA', color: AppColors.error),
                                   ],
                                   const SizedBox(height: 4),
                                   const Divider(),
-                                  _SummaryRow(label: 'Total à payer', value: '${_fmt(_grandTotal)} FCFA', bold: true, color: AppColors.primary),
+                                  _SummaryRow(label: 'Total à payer', value: '${_fmt(grandTotal)} FCFA', bold: true, color: AppColors.primary),
                                 ],
                               ),
                             ),
@@ -204,17 +240,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
                     child: Column(
                       children: [
-                        _SummaryRow(label: 'Sous-total articles', value: '${_fmt(_subtotal)} FCFA'),
+                        _SummaryRow(label: 'Sous-total articles (${cart.itemCount})', value: '${_fmt(subtotal)} FCFA'),
                         const SizedBox(height: 10),
                         _SummaryRow(label: 'Frais de livraison', value: '${_fmt(_deliveryFee)} FCFA'),
                         if (_hasFees && _paymentType == 1) ...[
                           const SizedBox(height: 10),
-                          _SummaryRow(label: 'Frais de gestion', value: '${_fmt(_fees)} FCFA', color: AppColors.error),
+                          _SummaryRow(label: 'Frais de gestion', value: '${_fmt(fees)} FCFA', color: AppColors.error),
                         ],
                         const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Divider(height: 1)),
                         _SummaryRow(
                           label: 'Total',
-                          value: '${_fmt(_paymentType == 0 ? _total : _grandTotal)} FCFA',
+                          value: '${_fmt(_paymentType == 0 ? total : grandTotal)} FCFA',
                           bold: true, color: AppColors.primary, large: true,
                         ),
                         if (_paymentType == 1) ...[
@@ -224,7 +260,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
                             child: Text(
-                              'À payer maintenant : ${_fmt(_firstPayment)} FCFA',
+                              'À payer maintenant : ${_fmt(firstPayment)} FCFA',
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
                             ),
@@ -291,7 +327,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                     ),
                     Text(
-                      _paymentType == 0 ? '${_fmt(_total)} FCFA' : '${_fmt(_firstPayment)} FCFA',
+                      _paymentType == 0 ? '${_fmt(total)} FCFA' : '${_fmt(firstPayment)} FCFA',
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary),
                     ),
                   ],
@@ -301,10 +337,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
                     onPressed: _acceptedCGV ? () => context.push('/payment', extra: {
-                      'amount': _paymentType == 0 ? _total : _firstPayment,
-                      'orderId': '2026-0042',
+                      'amount': _paymentType == 0 ? total : firstPayment,
+                      'orderId': 'NEW', // Will be created by backend
                       'isFirstPayment': _paymentType == 1,
                       'totalInstallments': _paymentType == 1 ? _installments : 1,
+                      'cartItems': ref.read(cartProvider.notifier).toOrderItems(),
+                      'deliveryMode': _selectedDelivery,
+                      'addressIndex': _selectedAddress,
                     }) : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary, foregroundColor: Colors.white,

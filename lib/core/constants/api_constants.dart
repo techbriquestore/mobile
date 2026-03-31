@@ -12,12 +12,16 @@
   // Auth
   static const String login = '/auth/login';
   static const String register = '/auth/register';
-  static const String verifyOtp = '/auth/verify-otp';
-  static const String resendOtp = '/auth/resend-otp';
+  static const String googleAuth = '/auth/google';
+  static const String verifyEmail = '/auth/verify-email';
+  static const String resendVerification = '/auth/resend-verification';
   static const String refreshToken = '/auth/refresh';
   static const String forgotPassword = '/auth/forgot-password';
+  static const String validateResetToken = '/auth/validate-reset-token';
   static const String resetPassword = '/auth/reset-password';
-  static const String logout = '/auth/logout';
+  
+  // Users
+  static const String me = '/users/me';
 
   // Products
   static const String products = '/products';

@@ -263,21 +263,6 @@ class _ProductCard extends StatelessWidget {
                         : _placeholder(),
                   ),
                   Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: product.inStock ? AppColors.success : AppColors.error,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        product.inStock ? 'EN STOCK' : 'RUPTURE',
-                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  Positioned(
                     bottom: 6,
                     right: 8,
                     child: Text(
@@ -325,10 +310,10 @@ class _ProductCard extends StatelessWidget {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: product.inStock ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey.shade100,
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.add, color: product.inStock ? AppColors.primary : Colors.grey.shade300, size: 18),
+                          child: const Icon(Icons.add, color: AppColors.primary, size: 18),
                         ),
                       ],
                     ),

@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../cart/data/providers/cart_provider.dart';
 import '../../models/product.dart';
 import '../../providers/catalog_providers.dart';
 
@@ -95,6 +96,18 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
+                      if (ref.watch(cartProvider).itemCount > 0)
+                        Positioned(
+                          right: 0, top: 0,
+                          child: Container(
+                            width: 14, height: 14,
+                            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                            child: Center(child: Text(
+                              '${ref.watch(cartProvider).itemCount}',
+                              style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white),
+                            )),
+                          ),
+                        ),
                     ],
                   ),
                 ],
@@ -131,12 +144,6 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                         ),
                       );
                     }),
-                    _CategoryChip(
-                      label: 'En stock',
-                      colorHex: '#4CAF50',
-                      isSelected: filters.stockOnly,
-                      onTap: () => ref.read(catalogFiltersProvider.notifier).toggleStockOnly(),
-                    ),
                   ],
                 ),
               ),
@@ -150,9 +157,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                 loading: () => _buildLoadingGrid(),
                 error: (err, _) => _buildError(err),
                 data: (page) {
-                  final products = filters.stockOnly
-                      ? page.data.where((p) => p.inStock).toList()
-                      : page.data;
+                  final products = page.data;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,29 +455,6 @@ class _ProductCard extends StatelessWidget {
                           )
                         : _imagePlaceholder(bgColor, icon, iconColor),
                   ),
-                  // Stock badge
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color:
-                            product.inStock ? AppColors.success : AppColors.error,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        product.inStock ? 'EN STOCK' : 'RUPTURE',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ),
-                  ),
                   // Référence
                   Positioned(
                     bottom: 6,
@@ -538,21 +520,17 @@ class _ProductCard extends StatelessWidget {
                           ),
                         ),
                         GestureDetector(
-                          onTap: product.inStock ? () {} : null,
+                          onTap: () {},
                           child: Container(
                             width: 30,
                             height: 30,
                             decoration: BoxDecoration(
-                              color: product.inStock
-                                  ? AppColors.primary.withValues(alpha: 0.1)
-                                  : Colors.grey.shade100,
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.add,
-                              color: product.inStock
-                                  ? AppColors.primary
-                                  : Colors.grey.shade300,
+                              color: AppColors.primary,
                               size: 18,
                             ),
                           ),

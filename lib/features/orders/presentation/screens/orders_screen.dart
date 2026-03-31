@@ -1,29 +1,19 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../cart/data/providers/cart_provider.dart';
 import '../../domain/models/order.dart';
+import '../../data/providers/order_providers.dart';
 
-class OrdersScreen extends StatefulWidget {
+class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
 
   @override
-  State<OrdersScreen> createState() => _OrdersScreenState();
-}
-
-class _OrdersScreenState extends State<OrdersScreen> {
-  OrderStatus? _selectedStatus;
-  // TODO: Charger les commandes depuis le backend
-  final List<OrderModel> _orders = [];
-
-  List<OrderModel> get _filteredOrders {
-    if (_selectedStatus == null) return _orders;
-    return _orders.where((o) => o.status == _selectedStatus).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final orders = _filteredOrders;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filters = ref.watch(orderFiltersProvider);
+    final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -40,10 +30,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: AppColors.textPrimary),
-            onPressed: () {},
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined, size: 24, color: AppColors.textPrimary),
+                onPressed: () => context.push('/cart'),
+              ),
+              if (ref.watch(cartProvider).itemCount > 0)
+                Positioned(
+                  right: 6, top: 6,
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                    child: Center(child: Text(
+                      '${ref.watch(cartProvider).itemCount}',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
+                    )),
+                  ),
+                ),
+            ],
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -60,20 +67,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 children: [
                   _FilterChip(
                     label: 'Toutes',
-                    isSelected: _selectedStatus == null,
+                    isSelected: filters.status == null,
                     color: AppColors.primary,
-                    onTap: () => setState(() => _selectedStatus = null),
+                    onTap: () => ref.read(orderFiltersProvider.notifier).setStatus(null),
                   ),
                   const SizedBox(width: 8),
                   ...OrderStatus.values.map((status) {
-                    final isSelected = _selectedStatus == status;
+                    final isSelected = filters.status == status;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: _FilterChip(
                         label: status.label,
                         isSelected: isSelected,
                         color: status.color,
-                        onTap: () => setState(() => _selectedStatus = status),
+                        onTap: () => ref.read(orderFiltersProvider.notifier).setStatus(status),
                       ),
                     );
                   }),
@@ -84,8 +91,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
           // ─── Order List ────────────────────────────────────────────────
           Expanded(
-            child: orders.isEmpty
-                ? Center(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Erreur de chargement',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => ref.invalidate(ordersProvider),
+                      child: const Text('Réessayer', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    ),
+                  ],
+                ),
+              ),
+              data: (page) {
+                if (page.data.isEmpty) {
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -97,15 +125,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       ],
                     ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: orders.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      return _OrderCard(order: orders[index]);
-                    },
-                  ),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: page.data.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    return _OrderCard(order: page.data[index]);
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -113,7 +144,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 }
 
-// ─── Filter Chip ────────────────────────────────────────────────────────────
+// Filter Chip 
 class _FilterChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -259,7 +290,9 @@ class _OrderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${order.items.first.productName}${order.items.length > 1 ? ' et ${order.items.length - 1} autre(s)' : ''}',
+                          order.items.isEmpty
+                              ? 'Commande'
+                              : '${order.items.first.productName}${order.items.length > 1 ? ' et ${order.items.length - 1} autre(s)' : ''}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

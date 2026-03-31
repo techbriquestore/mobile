@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/data/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/otp_screen.dart';
@@ -40,9 +41,29 @@ import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../shared/layouts/main_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Auth routes that don't require authentication
+  const authRoutes = ['/login', '/register', '/otp', '/forgot-password', '/onboarding'];
+  
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/login',
     debugLogDiagnostics: true,
+    redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final isAuthenticated = authState.isAuthenticated;
+      final isAuthRoute = authRoutes.contains(state.matchedLocation);
+      
+      // If not authenticated and trying to access protected route, redirect to login
+      if (!isAuthenticated && !isAuthRoute) {
+        return '/login';
+      }
+      
+      // If authenticated and trying to access auth route, redirect to home
+      if (isAuthenticated && isAuthRoute) {
+        return '/home';
+      }
+      
+      return null; // No redirect
+    },
     routes: [
       // === Onboarding ===
       GoRoute(path: '/onboarding', name: 'onboarding', builder: (_, __) => const OnboardingScreen()),

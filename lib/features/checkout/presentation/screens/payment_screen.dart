@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../auth/data/providers/auth_providers.dart';
+import '../../../cart/data/providers/cart_provider.dart';
+import '../../data/services/order_service.dart' as checkout;
+import '../../data/services/payment_service.dart';
+import '../../../orders/data/providers/order_providers.dart';
 
-class PaymentScreen extends StatefulWidget {
+class PaymentScreen extends ConsumerStatefulWidget {
   final double amount;
   final String orderId;
   final bool isFirstPayment;
@@ -17,15 +24,18 @@ class PaymentScreen extends StatefulWidget {
   });
 
   @override
-  State<PaymentScreen> createState() => _PaymentScreenState();
+  ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
+class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   int _selectedMethod = 0;
   int _selectedProvider = 0;
   final _phoneCtrl = TextEditingController();
   bool _isProcessing = false;
   _PaymentStatus _status = _PaymentStatus.idle;
+  String? _errorMessage;
+  String? _realOrderId;
+  String? _realOrderNumber;
 
   final _methods = [
     {'label': 'Mobile Money', 'icon': Icons.phone_android, 'color': const Color(0xFFFF6D00)},
@@ -55,15 +65,98 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return buf.toString();
   }
 
-  void _processPayment() {
-    if (_selectedMethod == 0 && _phoneCtrl.text.length < 10) return;
-    setState(() { _isProcessing = true; _status = _PaymentStatus.processing; });
+  String _getPaymentMethod() {
+    if (_selectedMethod == 1) return 'VISA';
+    const methods = ['ORANGE_MONEY', 'MTN_MONEY', 'MOOV_MONEY', 'WAVE'];
+    return methods[_selectedProvider];
+  }
 
-    // Simulate payment processing
-    Future.delayed(const Duration(seconds: 3), () {
+  Future<void> _processPayment() async {
+    if (_selectedMethod == 0 && _phoneCtrl.text.length < 10) return;
+    
+    // Check if user is authenticated
+    final authState = ref.read(authProvider);
+    if (!authState.isAuthenticated) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(
+          content: Text('Veuillez vous connecter pour passer une commande'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ));
+      context.push('/login');
+      return;
+    }
+    
+    setState(() { _isProcessing = true; _status = _PaymentStatus.processing; _errorMessage = null; });
+
+    try {
+      final orderService = checkout.OrderService(ServiceLocator.apiClient);
+      final paymentService = PaymentService(ServiceLocator.apiClient);
+
+      String orderId = widget.orderId;
+
+      // Step 1: Create order if new (from checkout)
+      if (orderId == 'NEW') {
+        // Get extra data passed from checkout
+        final extra = GoRouterState.of(context).extra as Map<String, dynamic>? ?? {};
+        final cartItems = extra['cartItems'] as List<dynamic>? ?? [];
+        final deliveryModeIndex = extra['deliveryMode'] as int? ?? 0;
+        final deliveryModes = ['STANDARD', 'EXPRESS', 'PICKUP'];
+        final paymentDuration = extra['totalInstallments'] as int? ?? 1;
+
+        final request = checkout.CreateOrderRequest(
+          items: cartItems.map((item) {
+            final m = item as Map<String, dynamic>;
+            return checkout.OrderItem(
+              productId: m['productId'] as String,
+              quantity: m['quantity'] as int,
+            );
+          }).toList(),
+          deliveryMode: deliveryModes[deliveryModeIndex],
+          paymentDuration: paymentDuration,
+        );
+
+        final order = await orderService.createOrder(request);
+        orderId = order.id;
+        _realOrderNumber = order.orderNumber;
+      }
+
+      _realOrderId = orderId;
+
+      // Step 2: Simulate payment
+      await paymentService.simulatePayment(
+        orderId: orderId,
+        amount: widget.amount.round(),
+        method: _getPaymentMethod(),
+        providerPhone: _selectedMethod == 0 ? _phoneCtrl.text : null,
+      );
+
+      // Step 3: Clear cart if this was a new order
+      if (widget.orderId == 'NEW') {
+        ref.read(cartProvider.notifier).clear();
+      }
+
+      // Invalidate orders list to refresh
+      ref.invalidate(ordersProvider);
+
       if (!mounted) return;
       setState(() { _isProcessing = false; _status = _PaymentStatus.success; });
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _status = _PaymentStatus.idle;
+        _errorMessage = e.toString();
+      });
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: Text('Erreur : $_errorMessage'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ));
+    }
   }
 
   @override
@@ -376,8 +469,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(height: 8),
               Text(
                 widget.isFirstPayment
-                    ? '1er versement pour CMD-${widget.orderId}\n${widget.totalInstallments - 1} échéances restantes'
-                    : 'Commande CMD-${widget.orderId}',
+                    ? '1er versement pour ${_realOrderNumber ?? ''}\n${widget.totalInstallments - 1} échéances restantes'
+                    : 'Commande ${_realOrderNumber ?? ''}',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5),
               ),
@@ -392,7 +485,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
-                    onPressed: () => context.push('/order-payments/${widget.orderId}'),
+                    onPressed: () => context.push('/order-payments/${_realOrderId ?? widget.orderId}'),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                     child: const Text('Voir mon échéancier', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
@@ -401,7 +494,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
-                    onPressed: () => context.push('/order-success/${widget.orderId}'),
+                    onPressed: () => context.go('/orders'),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                     child: const Text('Voir ma commande', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),

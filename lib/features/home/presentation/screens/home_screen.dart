@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../cart/data/providers/cart_provider.dart';
 import '../../../catalog/models/product.dart';
 import '../../../catalog/providers/catalog_providers.dart';
 
@@ -78,14 +79,18 @@ class HomeScreen extends ConsumerWidget {
                 color: AppColors.textPrimary,
                 onPressed: () => context.push('/cart'),
               ),
-              Positioned(
-                right: 6, top: 6,
-                child: Container(
-                  width: 16, height: 16,
-                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  child: const Center(child: Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
+              if (ref.watch(cartProvider).itemCount > 0)
+                Positioned(
+                  right: 6, top: 6,
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                    child: Center(child: Text(
+                      '${ref.watch(cartProvider).itemCount}',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
+                    )),
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(width: 4),
@@ -188,13 +193,11 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   _QuickAccessCard(icon: Icons.favorite_outline, label: 'Favoris', color: AppColors.error, onTap: () => context.push('/favorites')),
                   const SizedBox(width: 10),
-                  _QuickAccessCard(icon: Icons.calendar_month_outlined, label: 'Pré-commandes', color: const Color(0xFF9C27B0), onTap: () => context.push('/preorders')),
+                  _QuickAccessCard(icon: Icons.receipt_long_outlined, label: 'Commandes', color: const Color(0xFF9C27B0), onTap: () => context.go('/orders')),
                   const SizedBox(width: 10),
                   _QuickAccessCard(icon: Icons.local_offer_outlined, label: 'Promotions', color: AppColors.primary, onTap: () => context.push('/promotions')),
                   const SizedBox(width: 10),
                   _QuickAccessCard(icon: Icons.support_agent, label: 'Support', color: AppColors.info, onTap: () => context.push('/support')),
-                  const SizedBox(width: 10),
-                  _QuickAccessCard(icon: Icons.receipt_long_outlined, label: 'Commandes', color: AppColors.success, onTap: () => context.go('/orders')),
                 ],
               ),
             ),
@@ -220,6 +223,22 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 14),
             if (categoriesAsync.isLoading)
               const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+            else if (categoriesAsync.hasError)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, size: 16, color: Colors.grey.shade500),
+                    const SizedBox(width: 8),
+                    Text('Erreur de chargement', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => ref.invalidate(categoriesProvider),
+                      child: const Text('Réessayer', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    ),
+                  ],
+                ),
+              )
             else if (categories.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -418,7 +437,7 @@ class _ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image placeholder
+            // Image produit
             Container(
               height: 100,
               width: double.infinity,
@@ -429,21 +448,25 @@ class _ProductCard extends StatelessWidget {
                   topRight: Radius.circular(16),
                 ),
               ),
-              child: Stack(
-                children: [
-                  Center(child: Icon(Icons.view_in_ar_rounded, size: 48, color: iconColor)),
-                  if (product.inStock)
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(4)),
-                        child: const Text('EN STOCK', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
+              child: product.primaryImageUrl != null
+                  ? ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
                       ),
-                    ),
-                ],
-              ),
+                      child: Image.network(
+                        product.primaryImageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 100,
+                        errorBuilder: (_, __, ___) => Center(child: Icon(Icons.view_in_ar_rounded, size: 48, color: iconColor)),
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return Center(child: CircularProgressIndicator(strokeWidth: 2, color: iconColor));
+                        },
+                      ),
+                    )
+                  : Center(child: Icon(Icons.view_in_ar_rounded, size: 48, color: iconColor)),
             ),
             // Info
             Padding(
@@ -475,10 +498,10 @@ class _ProductCard extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: product.inStock ? AppColors.primary : Colors.grey.shade300,
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.add, color: product.inStock ? Colors.white : Colors.grey.shade500, size: 16),
+                        child: const Icon(Icons.add, color: Colors.white, size: 16),
                       ),
                     ],
                   ),
