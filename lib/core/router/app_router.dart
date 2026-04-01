@@ -39,18 +39,31 @@ import '../../features/profile/presentation/screens/settings_screen.dart';
 import '../../features/profile/presentation/screens/change_password_screen.dart';
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../shared/layouts/main_shell.dart';
+import '../../shared/widgets/splash_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Auth routes that don't require authentication
-  const authRoutes = ['/login', '/register', '/otp', '/forgot-password', '/onboarding'];
+  const authRoutes = ['/login', '/register', '/otp', '/forgot-password', '/onboarding', '/splash'];
   
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     debugLogDiagnostics: true,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isAuthenticated = authState.isAuthenticated;
       final isAuthRoute = authRoutes.contains(state.matchedLocation);
+      final isInitializing = authState.status == AuthStatus.initial;
+      final isSplash = state.matchedLocation == '/splash';
+      
+      // Show splash while initializing
+      if (isInitializing && !isSplash) {
+        return '/splash';
+      }
+      
+      // After initialization, redirect from splash
+      if (!isInitializing && isSplash) {
+        return isAuthenticated ? '/home' : '/login';
+      }
       
       // If not authenticated and trying to access protected route, redirect to login
       if (!isAuthenticated && !isAuthRoute) {
@@ -58,13 +71,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       
       // If authenticated and trying to access auth route, redirect to home
-      if (isAuthenticated && isAuthRoute) {
+      if (isAuthenticated && isAuthRoute && !isSplash) {
         return '/home';
       }
       
       return null; // No redirect
     },
     routes: [
+      // === Splash Screen ===
+      GoRoute(path: '/splash', name: 'splash', builder: (_, __) => const SplashScreen()),
+
       // === Onboarding ===
       GoRoute(path: '/onboarding', name: 'onboarding', builder: (_, __) => const OnboardingScreen()),
 

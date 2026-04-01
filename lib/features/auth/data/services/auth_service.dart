@@ -1,3 +1,4 @@
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 
@@ -99,8 +100,13 @@ class TokenPair {
 
 class AuthService {
   final ApiClient _apiClient;
+  late final GoogleSignIn _googleSignIn;
 
-  AuthService({required ApiClient apiClient}) : _apiClient = apiClient;
+  AuthService({required ApiClient apiClient}) : _apiClient = apiClient {
+    _googleSignIn = GoogleSignIn(
+      scopes: ['email', 'profile'],
+    );
+  }
 
   Future<AuthResult> login({
     required String identifier,
@@ -136,6 +142,44 @@ class AuthService {
       },
     );
     return AuthResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<AuthResult?> signInWithGoogle() async {
+    try {
+      // Trigger Google Sign-In flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        return null;
+      }
+
+      // Obtain auth details from request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Get the ID token
+      final String? idToken = googleAuth.idToken;
+      
+      if (idToken == null) {
+        throw Exception('Impossible d\'obtenir le token Google');
+      }
+
+      // Send ID token to backend
+      final response = await _apiClient.post(
+        ApiConstants.googleAuth,
+        data: {'idToken': idToken},
+      );
+      
+      return AuthResult.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      // Sign out on error to reset state
+      await _googleSignIn.signOut();
+      rethrow;
+    }
+  }
+
+  Future<void> signOutGoogle() async {
+    await _googleSignIn.signOut();
   }
 
   Future<AuthResult> googleAuth({required String idToken}) async {

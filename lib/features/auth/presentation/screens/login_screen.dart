@@ -51,16 +51,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _handleGoogleLogin() {
-    // Google OAuth requires google_sign_in package
-    // For now, show a message that it's not available on web
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connexion Google non disponible pour le moment'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _handleGoogleLogin() async {
+    final success = await ref.read(authProvider.notifier).signInWithGoogle();
+
+    if (!mounted) return;
+
+    if (success) {
+      context.go('/home');
+    } else {
+      final error = ref.read(authProvider).errorMessage;
+      if (error != null && error.isNotEmpty) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override

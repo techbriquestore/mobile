@@ -61,48 +61,44 @@ class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
     _initializeAuth();
-    return const AuthState();
+    return const AuthState(status: AuthStatus.initial);
   }
 
   AuthService get _authService => ref.read(authServiceProvider);
   ApiClient get _apiClient => ref.read(apiClientProvider);
 
   Future<void> _initializeAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString(_kAccessToken);
-    final refreshToken = prefs.getString(_kRefreshToken);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString(_kAccessToken);
+      final refreshToken = prefs.getString(_kRefreshToken);
 
-    if (accessToken != null && refreshToken != null) {
-      _apiClient.setTokens(access: accessToken, refresh: refreshToken);
-      
-      try {
-        final user = await _authService.getCurrentUser();
-        state = AuthState(
-          status: AuthStatus.authenticated,
-          user: user,
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-        );
-      } catch (_) {
-        // Token expired or invalid, try refresh
+      if (accessToken != null && refreshToken != null) {
+        _apiClient.setTokens(access: accessToken, refresh: refreshToken);
+        
         try {
-          final tokens = await _authService.refreshTokens(refreshToken: refreshToken);
-          _apiClient.setTokens(access: tokens.accessToken, refresh: tokens.refreshToken);
-          await _saveTokens(tokens.accessToken, tokens.refreshToken);
-          
-          final user = await _authService.getCurrentUser();
+          // Timeout de 5 secondes pour éviter le blocage
+          final user = await _authService.getCurrentUser().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw Exception('Timeout'),
+          );
           state = AuthState(
             status: AuthStatus.authenticated,
             user: user,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
           );
         } catch (_) {
+          // Token expired, invalid, or backend unreachable
+          // Clear tokens and go to login
           await _clearTokens();
           state = const AuthState(status: AuthStatus.unauthenticated);
         }
+      } else {
+        state = const AuthState(status: AuthStatus.unauthenticated);
       }
-    } else {
+    } catch (e) {
+      // En cas d'erreur, on considère l'utilisateur comme non authentifié
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
@@ -202,9 +198,41 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<bool> signInWithGoogle() async {
+    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+
+    try {
+      final result = await _authService.signInWithGoogle();
+      
+      if (result == null) {
+        // User cancelled
+        state = state.copyWith(status: AuthStatus.unauthenticated, clearError: true);
+        return false;
+      }
+
+      _apiClient.setTokens(access: result.accessToken, refresh: result.refreshToken);
+      await _saveTokens(result.accessToken, result.refreshToken);
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: result.user,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: _extractErrorMessage(e),
+      );
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     _apiClient.clearTokens();
     await _clearTokens();
+    await _authService.signOutGoogle();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 

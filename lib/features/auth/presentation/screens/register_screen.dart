@@ -70,14 +70,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  void _handleGoogleRegister() {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Inscription Google non disponible pour le moment'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _handleGoogleRegister() async {
+    final success = await ref.read(authProvider.notifier).signInWithGoogle();
+
+    if (!mounted) return;
+
+    if (success) {
+      context.go('/home');
+    } else {
+      final error = ref.read(authProvider).errorMessage;
+      if (error != null && error.isNotEmpty) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   InputDecoration _buildInputDecoration({
