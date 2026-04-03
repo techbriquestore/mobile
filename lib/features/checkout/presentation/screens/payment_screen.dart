@@ -498,7 +498,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
-                    onPressed: () => context.go('/order/${_realOrderId ?? widget.orderId}'),
+                    onPressed: () => context.go('/orders/${_realOrderId ?? widget.orderId}'),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                     child: const Text('Voir ma commande', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
