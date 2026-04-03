@@ -41,13 +41,27 @@ import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../shared/layouts/main_shell.dart';
 import '../../shared/widgets/splash_screen.dart';
 
+class AuthNotifierForRouter extends ChangeNotifier {
+  AuthNotifierForRouter(this._ref) {
+    _ref.listen(authProvider, (_, __) => notifyListeners());
+  }
+  final Ref _ref;
+}
+
+final _authNotifierForRouterProvider = Provider<AuthNotifierForRouter>((ref) {
+  return AuthNotifierForRouter(ref);
+});
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Auth routes that don't require authentication
   const authRoutes = ['/login', '/register', '/otp', '/forgot-password', '/onboarding', '/splash'];
   
+  final authNotifier = ref.watch(_authNotifierForRouterProvider);
+  
   return GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: true,
+    refreshListenable: authNotifier,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isAuthenticated = authState.isAuthenticated;

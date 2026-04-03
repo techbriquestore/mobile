@@ -1,6 +1,6 @@
 # Configuration Google Sign-In pour BRIKE.STORE
 
-## ✅ Code Flutter implémenté
+##  Code Flutter implémenté
 
 L'authentification Google est maintenant intégrée dans l'application Flutter :
 - Package `google_sign_in` installé
@@ -8,7 +8,7 @@ L'authentification Google est maintenant intégrée dans l'application Flutter :
 - Boutons Google fonctionnels sur login_screen et register_screen
 - Backend endpoint `/auth/google` déjà configuré
 
-## 🔧 Configuration requise par plateforme
+##  Configuration requise par plateforme
 
 ### 1. **Web (Chrome/Edge)**
 
@@ -107,7 +107,7 @@ import GoogleSignIn
 }
 ```
 
-## 🔑 Variables d'environnement Backend
+##  Variables d'environnement Backend
 
 Vérifiez que votre backend a ces variables dans `.env` :
 
@@ -117,7 +117,7 @@ GOOGLE_CLIENT_ID=votre-client-id.apps.googleusercontent.com
 
 Le `GOOGLE_CLIENT_ID` doit être le **Web client ID** de Google Cloud Console.
 
-## 🧪 Test de l'authentification Google
+##  Test de l'authentification Google
 
 ### Sur Web (Chrome)
 ```bash
@@ -139,7 +139,7 @@ flutter run -d <device-id>
 flutter run -d <device-id>
 ```
 
-## 🐛 Dépannage
+##  Dépannage
 
 ### Erreur "PlatformException(sign_in_failed)"
 - Vérifiez que le SHA-1 est correct dans Google Cloud Console
@@ -154,14 +154,14 @@ flutter run -d <device-id>
 - Vérifiez que `GOOGLE_CLIENT_ID` dans le backend correspond au Web client ID
 - Le backend utilise `google-auth-library` pour valider les tokens
 
-## 📝 Notes importantes
+##  Notes importantes
 
 1. **Développement** : Utilisez le debug keystore SHA-1 pour Android
 2. **Production** : Créez un nouveau OAuth client avec le SHA-1 de votre keystore de production
 3. **Multi-plateforme** : Vous pouvez avoir plusieurs OAuth clients (Web, Android, iOS) pour le même projet
 4. Le backend accepte les tokens de **tous** les clients OAuth configurés (Web, Android, iOS)
 
-## 🔗 Liens utiles
+##  Liens utiles
 
 - [Google Cloud Console](https://console.cloud.google.com/)
 - [google_sign_in package](https://pub.dev/packages/google_sign_in)
