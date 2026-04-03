@@ -7,6 +7,7 @@ import '../../../auth/data/providers/auth_providers.dart';
 import '../../../cart/data/providers/cart_provider.dart';
 import '../../data/services/order_service.dart' as checkout;
 import '../../data/services/payment_service.dart';
+import '../../data/providers/payment_providers.dart';
 import '../../../orders/data/providers/order_providers.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
@@ -137,8 +138,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ref.read(cartProvider.notifier).clear();
       }
 
-      // Invalidate orders list to refresh
+      // Invalidate all order-related providers to refresh data
       ref.invalidate(ordersProvider);
+      ref.invalidate(orderByIdProvider(orderId));
+      ref.invalidate(orderPaymentsProvider(orderId));
+      ref.invalidate(paymentHistoryProvider);
 
       if (!mounted) return;
       setState(() { _isProcessing = false; _status = _PaymentStatus.success; });
@@ -494,7 +498,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
-                    onPressed: () => context.go('/orders'),
+                    onPressed: () => context.go('/order/${_realOrderId ?? widget.orderId}'),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                     child: const Text('Voir ma commande', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
