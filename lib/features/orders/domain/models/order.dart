@@ -88,7 +88,7 @@ class OrderPayment {
     );
   }
   
-  bool get isPaid => status == 'COMPLETED';
+  bool get isPaid => status == 'CONFIRMED' || status == 'COMPLETED';
 }
 
 class OrderModel {
