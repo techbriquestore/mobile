@@ -22,6 +22,8 @@
   
   // Users
   static const String me = '/users/me';
+  static const String userProfile = '/users/profile';
+  static const String userPreferences = '/users/preferences';
 
   // Products
   static const String products = '/products';
