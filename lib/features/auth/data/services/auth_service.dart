@@ -8,7 +8,10 @@ class User {
   final String? email;
   final String firstName;
   final String lastName;
+  final String clientType;
   final String? companyName;
+  final String? taxId;
+  final String? sector;
   final String? profilePhotoUrl;
   final String role;
   final String status;
@@ -22,7 +25,10 @@ class User {
     this.email,
     required this.firstName,
     required this.lastName,
+    this.clientType = 'PARTICULIER',
     this.companyName,
+    this.taxId,
+    this.sector,
     this.profilePhotoUrl,
     required this.role,
     required this.status,
@@ -38,7 +44,10 @@ class User {
       email: json['email'] as String?,
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
+      clientType: json['clientType'] as String? ?? 'PARTICULIER',
       companyName: json['companyName'] as String?,
+      taxId: json['taxId'] as String?,
+      sector: json['sector'] as String?,
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
       role: json['role'] as String? ?? 'CLIENT',
       status: json['status'] as String? ?? 'ACTIVE',
@@ -51,8 +60,8 @@ class User {
   }
 
   String get fullName => '$firstName $lastName'.trim();
-  
   bool get isActive => status == 'ACTIVE';
+  bool get isProfessional => clientType == 'PROFESSIONNEL';
 }
 
 class AuthResult {
@@ -128,7 +137,10 @@ class AuthService {
     required String password,
     required String firstName,
     required String lastName,
+    String clientType = 'PARTICULIER',
     String? companyName,
+    String? taxId,
+    String? sector,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.register,
@@ -138,7 +150,10 @@ class AuthService {
         'password': password,
         'firstName': firstName,
         'lastName': lastName,
+        'clientType': clientType,
         if (companyName != null && companyName.isNotEmpty) 'companyName': companyName,
+        if (taxId != null && taxId.isNotEmpty) 'taxId': taxId,
+        if (sector != null && sector.isNotEmpty) 'sector': sector,
       },
     );
     return AuthResult.fromJson(response.data as Map<String, dynamic>);

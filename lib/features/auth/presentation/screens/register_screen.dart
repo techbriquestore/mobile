@@ -19,7 +19,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  // Pro fields
+  final _companyNameController = TextEditingController();
+  final _taxIdController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isPro = false;
+  String? _selectedSector;
+
+  static const List<String> _sectors = [
+    'BTP / Construction',
+    'Architecture',
+    'Immobilier',
+    'Commerce de matériaux',
+    'Travaux publics',
+    'Décoration / Aménagement',
+    'Autre',
+  ];
 
   @override
   void dispose() {
@@ -28,13 +43,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _companyNameController.dispose();
+    _taxIdController.dispose();
     super.dispose();
   }
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
     
-    // Clean phone number (remove spaces)
     final phone = _phoneController.text.replaceAll(' ', '');
     
     final success = await ref.read(authProvider.notifier).register(
@@ -43,6 +59,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       password: _passwordController.text,
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
+      clientType: _isPro ? 'PROFESSIONNEL' : 'PARTICULIER',
+      companyName: _isPro ? _companyNameController.text.trim() : null,
+      taxId: _isPro ? _taxIdController.text.trim() : null,
+      sector: _isPro ? _selectedSector : null,
     );
 
     if (!mounted) return;
@@ -139,7 +159,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final authState = ref.watch(authProvider);
     final isLoading = authState.isLoading;
     final size = MediaQuery.of(context).size;
-    final headerHeight = size.height * 0.26;
+    final headerHeight = size.height * 0.22;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -219,6 +239,86 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ─── Toggle Particulier / Professionnel ───
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _isPro = false),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: !_isPro ? AppColors.primary : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.person_outline,
+                                          size: 18,
+                                          color: !_isPro ? Colors.white : Colors.grey.shade600,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Particulier',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: !_isPro ? Colors.white : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _isPro = true),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: _isPro ? AppColors.primary : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.business_outlined,
+                                          size: 18,
+                                          color: _isPro ? Colors.white : Colors.grey.shade600,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Professionnel',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isPro ? Colors.white : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
                         // Nom & Prénom en row
                         Row(
                           children: [
@@ -266,6 +366,58 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
+
+                        // ─── Champs Pro (conditionnels) ───
+                        if (_isPro) ...[
+                          _buildLabel('RAISON SOCIALE'),
+                          TextFormField(
+                            controller: _companyNameController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: _buildInputDecoration(
+                              hint: 'Ma Société SARL',
+                              prefixIcon: Icons.business,
+                            ),
+                            validator: (v) =>
+                                (_isPro && (v == null || v.trim().isEmpty))
+                                    ? 'Requis pour un compte pro'
+                                    : null,
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildLabel('N° RCCM'),
+                          TextFormField(
+                            controller: _taxIdController,
+                            textCapitalization: TextCapitalization.characters,
+                            decoration: _buildInputDecoration(
+                              hint: 'CI-ABJ-2024-B-12345',
+                              prefixIcon: Icons.description_outlined,
+                            ),
+                            validator: (v) =>
+                                (_isPro && (v == null || v.trim().isEmpty))
+                                    ? 'Le RCCM est requis'
+                                    : null,
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildLabel('SECTEUR D\'ACTIVITÉ'),
+                          DropdownButtonFormField<String>(
+                            value: _selectedSector,
+                            decoration: _buildInputDecoration(
+                              hint: 'Sélectionnez',
+                              prefixIcon: Icons.category_outlined,
+                            ),
+                            items: _sectors.map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s, style: const TextStyle(fontSize: 14)),
+                            )).toList(),
+                            onChanged: (v) => setState(() => _selectedSector = v),
+                            validator: (v) =>
+                                (_isPro && (v == null || v.isEmpty))
+                                    ? 'Requis pour un compte pro'
+                                    : null,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         // Téléphone
                         _buildLabel('TÉLÉPHONE'),
@@ -367,9 +519,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text(
-                                    'Créer mon compte',
-                                    style: TextStyle(
+                                : Text(
+                                    _isPro ? 'Créer mon compte pro' : 'Créer mon compte',
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),

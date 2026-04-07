@@ -106,6 +106,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         final deliveryModes = ['STANDARD', 'EXPRESS', 'PICKUP'];
         final paymentDuration = extra['totalInstallments'] as int? ?? 1;
 
+        final addressId = extra['addressId'] as String?;
+
         final request = checkout.CreateOrderRequest(
           items: cartItems.map((item) {
             final m = item as Map<String, dynamic>;
@@ -114,6 +116,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               quantity: m['quantity'] as int,
             );
           }).toList(),
+          deliveryAddressId: addressId,
           deliveryMode: deliveryModes[deliveryModeIndex],
           paymentDuration: paymentDuration,
         );

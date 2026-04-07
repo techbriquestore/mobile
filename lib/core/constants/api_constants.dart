@@ -47,7 +47,7 @@
 
   // Profile
   static const String profile = '/profile';
-  static const String addresses = '/profile/addresses';
+  static const String addresses = '/users/addresses';
   static const String preferences = '/profile/preferences';
 
   // Simulator

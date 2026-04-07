@@ -140,7 +140,10 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     required String firstName,
     required String lastName,
+    String clientType = 'PARTICULIER',
     String? companyName,
+    String? taxId,
+    String? sector,
   }) async {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
 
@@ -151,7 +154,10 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
         firstName: firstName,
         lastName: lastName,
+        clientType: clientType,
         companyName: companyName,
+        taxId: taxId,
+        sector: sector,
       );
 
       _apiClient.setTokens(access: result.accessToken, refresh: result.refreshToken);

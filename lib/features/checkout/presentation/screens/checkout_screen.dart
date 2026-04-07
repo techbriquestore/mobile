@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/providers/auth_providers.dart';
 import '../../../cart/data/providers/cart_provider.dart';
+import '../../../profile/data/providers/address_providers.dart';
+import '../../../profile/presentation/screens/add_address_screen.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -13,7 +15,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  int _selectedAddress = 0;
+  String? _selectedAddressId;
   int _selectedDelivery = 0;
 
   // ─── Payment plan ───
@@ -21,6 +23,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   int _paymentType = 0;
   int _installments = 3;
   bool _acceptedCGV = false;
+
+  // ─── Correspondant secondaire (optionnel) ───
+  bool _hasSecondaryContact = false;
+  final _secondaryNameController = TextEditingController();
+  final _secondaryPhoneController = TextEditingController();
+  final _secondaryNoteController = TextEditingController();
 
   // Delivery fees by mode
   static const List<double> _deliveryFees = [15000, 35000, 0];
@@ -33,16 +41,36 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   double _getFees(double total) => _hasFees ? (total * 0.02) : 0;
   double _getGrandTotal(double total) => total + _getFees(total);
 
-  final _addresses = [
-    {'label': 'Chantier Cocody', 'address': 'Cocody Riviera Palmeraie, Abidjan', 'icon': Icons.construction},
-    {'label': 'Bureau', 'address': 'Plateau, Rue du Commerce, Abidjan', 'icon': Icons.business},
-  ];
-
   final _deliveryModes = [
     {'label': 'Standard', 'sub': '3 à 5 jours ouvrés', 'price': '15 000 FCFA', 'icon': Icons.local_shipping_outlined},
     {'label': 'Express', 'sub': '48 heures', 'price': '35 000 FCFA', 'icon': Icons.bolt},
     {'label': 'Retrait en dépôt', 'sub': 'Jour J ou J+1 • Gratuit', 'price': 'Gratuit', 'icon': Icons.store_outlined},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(addressProvider.notifier).loadAddresses();
+    });
+  }
+
+  @override
+  void dispose() {
+    _secondaryNameController.dispose();
+    _secondaryPhoneController.dispose();
+    _secondaryNoteController.dispose();
+    super.dispose();
+  }
+
+  IconData _iconForLabel(String label) {
+    final l = label.toLowerCase();
+    if (l.contains('chantier')) return Icons.construction;
+    if (l.contains('bureau')) return Icons.business;
+    if (l.contains('entrepôt') || l.contains('entrepot')) return Icons.warehouse;
+    if (l.contains('domicile') || l.contains('maison')) return Icons.home_outlined;
+    return Icons.location_on_outlined;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,17 +125,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                   // ═══════════════ STEP 1 : Adresse de livraison ═══════════════
                   _SectionHeader(number: '1', title: 'Adresse de livraison'),
-                  ...List.generate(_addresses.length, (i) {
-                    final a = _addresses[i];
-                    final selected = _selectedAddress == i;
-                    return _SelectableCard(
-                      selected: selected,
-                      onTap: () => setState(() => _selectedAddress = i),
-                      icon: a['icon'] as IconData,
-                      title: a['label'] as String,
-                      subtitle: a['address'] as String,
-                    );
-                  }),
+                  _buildAddressSection(),
 
                   const SizedBox(height: 8),
 
@@ -271,6 +289,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                   const SizedBox(height: 14),
 
+                  // ═══════════════ CORRESPONDANT SECONDAIRE (optionnel) ═══════════════
+                  _buildSecondaryContactSection(),
+
+                  const SizedBox(height: 8),
+
                   // ─── CGV acceptance ───
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -336,14 +359,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
-                    onPressed: _acceptedCGV ? () => context.push('/payment', extra: {
+                    onPressed: (_acceptedCGV && _selectedAddressId != null) ? () => context.push('/payment', extra: {
                       'amount': _paymentType == 0 ? total : firstPayment,
                       'orderId': 'NEW', // Will be created by backend
                       'isFirstPayment': _paymentType == 1,
                       'totalInstallments': _paymentType == 1 ? _installments : 1,
                       'cartItems': ref.read(cartProvider.notifier).toOrderItems(),
                       'deliveryMode': _selectedDelivery,
-                      'addressIndex': _selectedAddress,
+                      'addressId': _selectedAddressId,
+                      if (_hasSecondaryContact && _secondaryNameController.text.trim().isNotEmpty) ...{
+                        'secondaryContactName': _secondaryNameController.text.trim(),
+                        'secondaryContactPhone': _secondaryPhoneController.text.replaceAll(' ', ''),
+                        if (_secondaryNoteController.text.trim().isNotEmpty)
+                          'secondaryContactNote': _secondaryNoteController.text.trim(),
+                      },
                     }) : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary, foregroundColor: Colors.white,
@@ -360,6 +389,235 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAddressSection() {
+    final addrState = ref.watch(addressProvider);
+    final addresses = addrState.addresses;
+
+    // Loading
+    if (addrState.status == AddressStatus.loading && addresses.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // No addresses
+    if (addresses.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.orange.shade300),
+          ),
+          child: Column(
+            children: [
+              Icon(Icons.location_off_outlined, size: 40, color: Colors.orange.shade300),
+              const SizedBox(height: 10),
+              Text(
+                'Aucune adresse enregistrée',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Ajoutez une adresse de livraison dans le Grand Abidjan',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+                    );
+                    if (mounted) {
+                      ref.read(addressProvider.notifier).loadAddresses();
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Ajouter une adresse'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Auto-select default address
+    if (_selectedAddressId == null) {
+      final def = addrState.defaultAddress;
+      if (def != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _selectedAddressId = def.id);
+        });
+      }
+    }
+
+    return Column(
+      children: [
+        ...addresses.map((addr) {
+          final selected = _selectedAddressId == addr.id;
+          return _SelectableCard(
+            selected: selected,
+            onTap: () => setState(() => _selectedAddressId = addr.id),
+            icon: _iconForLabel(addr.label),
+            title: addr.label,
+            subtitle: addr.displayAddress,
+            trailing: addr.isDefault && !selected
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('Défaut', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  )
+                : null,
+          );
+        }),
+        // Add new address button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+              );
+              if (mounted) {
+                ref.read(addressProvider.notifier).loadAddresses();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_circle_outline, color: AppColors.primary, size: 18),
+                  const SizedBox(width: 8),
+                  const Text('Nouvelle adresse', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryContactSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.people_outline, size: 20, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Correspondant secondaire',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  ),
+                ),
+                Text('Optionnel', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Personne sur place qui pourra réceptionner votre commande si vous n\'êtes pas disponible.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              value: _hasSecondaryContact,
+              onChanged: (v) => setState(() => _hasSecondaryContact = v),
+              title: const Text('Ajouter un correspondant', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              activeColor: AppColors.primary,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+            if (_hasSecondaryContact) ...[              
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _secondaryNameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Nom complet du correspondant',
+                  prefixIcon: Icon(Icons.person_outline, color: AppColors.primary, size: 20),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _secondaryPhoneController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: 'Téléphone du correspondant',
+                  prefixIcon: Icon(Icons.phone_outlined, color: AppColors.primary, size: 20),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _secondaryNoteController,
+                textCapitalization: TextCapitalization.sentences,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Note (optionnel) - ex: Disponible le matin uniquement',
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Icon(Icons.note_outlined, color: AppColors.primary, size: 20),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
