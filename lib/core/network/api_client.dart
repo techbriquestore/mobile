@@ -1,5 +1,7 @@
-﻿import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+﻿import 'dart:io' show Platform;
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../constants/api_constants.dart';
@@ -15,8 +17,16 @@ class ApiClient {
   ApiClient({
     required ConnectivityService connectivityService,
   })  : _connectivityService = connectivityService {
-    // En dev web (Chrome), utiliser localhost directement
-    final baseUrl = kIsWeb ? ApiConstants.devUrl : ApiConstants.baseUrl;
+    // Web → localhost, Android émulateur → 10.0.2.2, Appareil physique → IP WiFi
+    final String baseUrl;
+    if (kIsWeb) {
+      baseUrl = ApiConstants.devUrl;
+    } else if (Platform.isAndroid) {
+      // En debug (émulateur), utiliser 10.0.2.2 ; en release (APK physique), IP WiFi
+      baseUrl = kDebugMode ? ApiConstants.emulatorUrl : ApiConstants.baseUrl;
+    } else {
+      baseUrl = ApiConstants.baseUrl;
+    }
 
     _dio = Dio(
       BaseOptions(
@@ -153,14 +163,24 @@ class _ConnectivityInterceptor extends Interceptor {
 class _ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    final url = err.requestOptions.uri.toString();
     switch (err.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        throw const ServerException(message: 'DÃ©lai dÃ©passÃ©. RÃ©essayez.', statusCode: 408);
+        throw ServerException(message: 'Délai dépassé. Réessayez. ($url)', statusCode: 408);
       case DioExceptionType.connectionError:
         if (err.error is NetworkException) throw err.error as NetworkException;
-        throw const NetworkException();
+        throw ServerException(
+          message: 'Connexion impossible au serveur ($url). Vérifiez que le serveur est démarré et que vous êtes sur le même réseau WiFi.',
+          statusCode: 0,
+        );
+      case DioExceptionType.unknown:
+        final detail = err.error?.toString() ?? err.message ?? 'inconnue';
+        throw ServerException(
+          message: 'Erreur réseau: $detail ($url)',
+          statusCode: 0,
+        );
       default:
         final statusCode = err.response?.statusCode;
         final data = err.response?.data;

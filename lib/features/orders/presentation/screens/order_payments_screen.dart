@@ -6,9 +6,23 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../checkout/data/providers/payment_providers.dart';
 import '../../../checkout/data/services/payment_service.dart';
 
-class OrderPaymentsScreen extends ConsumerWidget {
+class OrderPaymentsScreen extends ConsumerStatefulWidget {
   final String orderId;
   const OrderPaymentsScreen({super.key, required this.orderId});
+
+  @override
+  ConsumerState<OrderPaymentsScreen> createState() => _OrderPaymentsScreenState();
+}
+
+class _OrderPaymentsScreenState extends ConsumerState<OrderPaymentsScreen> {
+  final _amountCtrl = TextEditingController();
+  static const int _minAmount = 5000;
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
 
   String _fmt(int v) {
     final s = v.toString();
@@ -20,9 +34,14 @@ class OrderPaymentsScreen extends ConsumerWidget {
     return buf.toString();
   }
 
+  int? get _enteredAmount {
+    final text = _amountCtrl.text.replaceAll(' ', '').replaceAll('.', '').replaceAll(',', '');
+    return int.tryParse(text);
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dataAsync = ref.watch(orderPaymentsProvider(orderId));
+  Widget build(BuildContext context) {
+    final dataAsync = ref.watch(orderPaymentsProvider(widget.orderId));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -43,18 +62,18 @@ class OrderPaymentsScreen extends ConsumerWidget {
               Text('Erreur de chargement', style: TextStyle(color: Colors.grey.shade500)),
               const SizedBox(height: 12),
               GestureDetector(
-                onTap: () => ref.invalidate(orderPaymentsProvider(orderId)),
+                onTap: () => ref.invalidate(orderPaymentsProvider(widget.orderId)),
                 child: const Text('Réessayer', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
               ),
             ],
           ),
         ),
-        data: (data) => _buildContent(context, ref, data),
+        data: (data) => _buildContent(context, data),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, OrderPaymentsData data) {
+  Widget _buildContent(BuildContext context, OrderPaymentsData data) {
     final dateFormat = DateFormat('dd MMM yyyy à HH:mm', 'fr_FR');
     final remaining = data.remaining;
     final progress = data.progressPercent;
@@ -171,7 +190,7 @@ class OrderPaymentsScreen extends ConsumerWidget {
           ),
         ),
 
-        // ─── Pay next installment button ───
+        // ─── Pay custom amount ───
         if (remaining > 0)
           Container(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
@@ -180,34 +199,96 @@ class OrderPaymentsScreen extends ConsumerWidget {
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -4))],
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Prochaine échéance', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                    Text('${_fmt(remaining > data.totalAmount ~/ (data.paymentDuration ?? 1) ? data.totalAmount ~/ (data.paymentDuration ?? 1) : remaining)} FCFA',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    Text('Restant à payer', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                    Text('${_fmt(remaining)} FCFA', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.primary)),
                   ],
                 ),
                 const SizedBox(height: 12),
+
+                // Amount input
+                Text('MONTANT À PAYER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _amountCtrl,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Min ${_fmt(_minAmount)} FCFA',
+                    hintStyle: TextStyle(color: Colors.grey.shade300),
+                    suffixText: 'FCFA',
+                    suffixStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Quick-select chips
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: _buildQuickAmounts(remaining).map((amt) {
+                    return GestureDetector(
+                      onTap: () => setState(() => _amountCtrl.text = amt.toString()),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _enteredAmount == amt ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _enteredAmount == amt ? AppColors.primary : Colors.grey.shade300),
+                        ),
+                        child: Text(
+                          '${_fmt(amt)} F',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _enteredAmount == amt ? AppColors.primary : AppColors.textPrimary),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 6),
+
+                // Validation message
+                if (_enteredAmount != null && _enteredAmount! < _minAmount)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Le montant minimum est de ${_fmt(_minAmount)} FCFA', style: const TextStyle(fontSize: 12, color: AppColors.error)),
+                  ),
+                if (_enteredAmount != null && _enteredAmount! > remaining)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Le montant ne peut pas dépasser le restant (${_fmt(remaining)} FCFA)', style: const TextStyle(fontSize: 12, color: AppColors.error)),
+                  ),
+
+                const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      final installmentAmount = remaining > data.totalAmount ~/ (data.paymentDuration ?? 1)
-                          ? data.totalAmount ~/ (data.paymentDuration ?? 1)
-                          : remaining;
-                      context.push('/payment', extra: {
-                        'amount': installmentAmount.toDouble(),
-                        'orderId': orderId,
-                        'isFirstPayment': false,
-                        'totalInstallments': data.paymentDuration ?? 1,
-                      });
-                    },
+                    onPressed: (_enteredAmount != null && _enteredAmount! >= _minAmount && _enteredAmount! <= remaining)
+                        ? () {
+                            context.push('/payment', extra: {
+                              'amount': _enteredAmount!.toDouble(),
+                              'orderId': widget.orderId,
+                              'isFirstPayment': false,
+                              'totalInstallments': data.paymentDuration ?? 1,
+                            });
+                          }
+                        : null,
                     icon: const Icon(Icons.payment, size: 20),
-                    label: const Text('Payer l\'échéance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    label: Text(
+                      _enteredAmount != null && _enteredAmount! >= _minAmount && _enteredAmount! <= remaining
+                          ? 'Payer ${_fmt(_enteredAmount!)} FCFA'
+                          : 'Payer',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade300,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0,
                     ),
                   ),
@@ -217,5 +298,16 @@ class OrderPaymentsScreen extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  List<int> _buildQuickAmounts(int remaining) {
+    final suggestions = <int>[];
+    for (final amt in [5000, 10000, 25000, 50000, 100000]) {
+      if (amt >= _minAmount && amt <= remaining) suggestions.add(amt);
+    }
+    if (!suggestions.contains(remaining) && remaining >= _minAmount) {
+      suggestions.add(remaining);
+    }
+    return suggestions;
   }
 }

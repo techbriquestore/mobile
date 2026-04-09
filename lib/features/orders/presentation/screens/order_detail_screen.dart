@@ -453,26 +453,6 @@ class _OrderDetailBody extends ConsumerWidget {
                   ),
                 ],
 
-                // ─── Actions ────────────────────────────────────────────
-                if (order.status == OrderStatus.pendingValidation || order.status == OrderStatus.validated) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _cancelOrder(context, ref),
-                      icon: const Icon(Icons.cancel_outlined, size: 18),
-                      label: const Text('Annuler la commande', style: TextStyle(fontWeight: FontWeight.w600)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(color: AppColors.error),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                ],
-
                 const SizedBox(height: 24),
               ],
             ),
@@ -636,40 +616,6 @@ class _OrderDetailBody extends ConsumerWidget {
         );
       }).toList(),
     );
-  }
-
-  Future<void> _cancelOrder(BuildContext context, WidgetRef ref) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Annuler la commande ?', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text('Cette action est irréversible. Voulez-vous continuer ?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Non')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Oui, annuler', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600))),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      try {
-        final service = ref.read(orderServiceProvider);
-        await service.cancelOrder(order.id);
-        ref.invalidate(orderByIdProvider(orderId));
-        ref.invalidate(ordersProvider);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Commande annulée'), backgroundColor: AppColors.success),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur : $e'), backgroundColor: AppColors.error),
-          );
-        }
-      }
-    }
   }
 
   static String _formatAmount(double amount) {

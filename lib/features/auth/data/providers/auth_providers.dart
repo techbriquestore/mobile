@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/providers/core_providers.dart';
 import '../services/auth_service.dart';
@@ -293,13 +294,18 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   String _extractErrorMessage(dynamic error) {
+    // Handle our custom exceptions directly
+    if (error is ServerException) {
+      return error.message;
+    }
+    if (error is NetworkException) {
+      return error.message;
+    }
+    if (error is UnauthorizedException) {
+      return error.message;
+    }
     if (error is Exception) {
       final str = error.toString();
-      // Try to extract message from ServerException
-      if (str.contains('message:')) {
-        final match = RegExp(r'message:\s*(.+?)(?:,|$)').firstMatch(str);
-        if (match != null) return match.group(1)?.trim() ?? 'Erreur inconnue';
-      }
       return str.replaceAll('Exception: ', '');
     }
     return error?.toString() ?? 'Erreur inconnue';

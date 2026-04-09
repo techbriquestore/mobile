@@ -16,11 +16,8 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _selectedAddressId;
-  int _selectedDelivery = 0;
 
-  // ─── Payment plan ───
-  /// 0 = paiement complet, 1 = échelonné
-  int _paymentType = 0;
+  // ─── Payment plan (échelonné uniquement) ───
   int _installments = 3;
   bool _acceptedCGV = false;
 
@@ -30,22 +27,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _secondaryPhoneController = TextEditingController();
   final _secondaryNoteController = TextEditingController();
 
-  // Delivery fees by mode
-  static const List<double> _deliveryFees = [15000, 35000, 0];
-  double get _deliveryFee => _deliveryFees[_selectedDelivery];
+  // Frais de livraison — mode Standard uniquement
+  static const double _deliveryFee = 15000;
   double _getTotal(double subtotal) => subtotal + _deliveryFee;
-  double _getFirstPayment(double total) => _paymentType == 0 ? total : (total * 0.15).ceilToDouble();
+  double _getFirstPayment(double total) => (total * 0.15).ceilToDouble();
   double _getInstallmentAmount(double total, double firstPayment) => 
-      _paymentType == 0 ? 0 : ((total - firstPayment) / (_installments - 1)).ceilToDouble();
+      ((total - firstPayment) / (_installments - 1)).ceilToDouble();
   bool get _hasFees => _installments > 4;
   double _getFees(double total) => _hasFees ? (total * 0.02) : 0;
   double _getGrandTotal(double total) => total + _getFees(total);
 
-  final _deliveryModes = [
-    {'label': 'Standard', 'sub': '3 à 5 jours ouvrés', 'price': '15 000 FCFA', 'icon': Icons.local_shipping_outlined},
-    {'label': 'Express', 'sub': '48 heures', 'price': '35 000 FCFA', 'icon': Icons.bolt},
-    {'label': 'Retrait en dépôt', 'sub': 'Jour J ou J+1 • Gratuit', 'price': 'Gratuit', 'icon': Icons.store_outlined},
-  ];
 
   @override
   void initState() {
@@ -131,38 +122,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                   // ═══════════════ STEP 2 : Mode de livraison ═══════════════
                   _SectionHeader(number: '2', title: 'Mode de livraison'),
-                  ...List.generate(_deliveryModes.length, (i) {
-                    final d = _deliveryModes[i];
-                    final selected = _selectedDelivery == i;
-                    return _SelectableCard(
-                      selected: selected,
-                      onTap: () => setState(() => _selectedDelivery = i),
-                      icon: d['icon'] as IconData,
-                      title: d['label'] as String,
-                      subtitle: d['sub'] as String,
-                      trailing: Text(d['price'] as String, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? AppColors.primary : Colors.grey.shade500)),
-                    );
-                  }),
+                  _SelectableCard(
+                    selected: true,
+                    onTap: () {},
+                    icon: Icons.local_shipping_outlined,
+                    title: 'Standard',
+                    subtitle: '3 à 5 jours ouvrés',
+                    trailing: Text('15 000 FCFA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  ),
 
                   const SizedBox(height: 8),
 
-                  // ═══════════════ STEP 3 : Plan de paiement ═══════════════
-                  _SectionHeader(number: '3', title: 'Plan de paiement'),
-
-                  // Toggle complet / échelonné
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        _PaymentTypeChip(label: 'Paiement complet', selected: _paymentType == 0, onTap: () => setState(() => _paymentType = 0)),
-                        const SizedBox(width: 10),
-                        _PaymentTypeChip(label: 'Paiement échelonné', selected: _paymentType == 1, onTap: () => setState(() => _paymentType = 1)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  if (_paymentType == 1) ...[
+                  // ═══════════════ STEP 3 : Plan de paiement échelonné ═══════════════
+                  _SectionHeader(number: '3', title: 'Paiement échelonné'),
+                  const SizedBox(height: 4),
                     // Installment selector
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -247,8 +220,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                  ],
+                  const SizedBox(height: 14),
 
                   // ═══════════════ STEP 4 : Récapitulatif ═══════════════
                   _SectionHeader(number: '4', title: 'Récapitulatif de la commande'),
@@ -261,17 +233,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         _SummaryRow(label: 'Sous-total articles (${cart.itemCount})', value: '${_fmt(subtotal)} FCFA'),
                         const SizedBox(height: 10),
                         _SummaryRow(label: 'Frais de livraison', value: '${_fmt(_deliveryFee)} FCFA'),
-                        if (_hasFees && _paymentType == 1) ...[
+                        if (_hasFees) ...[
                           const SizedBox(height: 10),
                           _SummaryRow(label: 'Frais de gestion', value: '${_fmt(fees)} FCFA', color: AppColors.error),
                         ],
                         const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Divider(height: 1)),
                         _SummaryRow(
                           label: 'Total',
-                          value: '${_fmt(_paymentType == 0 ? total : grandTotal)} FCFA',
+                          value: '${_fmt(grandTotal)} FCFA',
                           bold: true, color: AppColors.primary, large: true,
                         ),
-                        if (_paymentType == 1) ...[
                           const SizedBox(height: 8),
                           Container(
                             width: double.infinity,
@@ -283,7 +254,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ),
@@ -346,11 +316,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      _paymentType == 0 ? 'Total à payer' : '1er versement',
+                      '1er versement (15%)',
                       style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                     ),
                     Text(
-                      _paymentType == 0 ? '${_fmt(total)} FCFA' : '${_fmt(firstPayment)} FCFA',
+                      '${_fmt(firstPayment)} FCFA',
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary),
                     ),
                   ],
@@ -360,12 +330,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
                     onPressed: (_acceptedCGV && _selectedAddressId != null) ? () => context.push('/payment', extra: {
-                      'amount': _paymentType == 0 ? total : firstPayment,
+                      'amount': firstPayment,
                       'orderId': 'NEW', // Will be created by backend
-                      'isFirstPayment': _paymentType == 1,
-                      'totalInstallments': _paymentType == 1 ? _installments : 1,
+                      'isFirstPayment': true,
+                      'totalInstallments': _installments,
                       'cartItems': ref.read(cartProvider.notifier).toOrderItems(),
-                      'deliveryMode': _selectedDelivery,
+                      'deliveryMode': 0, // Standard uniquement
                       'addressId': _selectedAddressId,
                       if (_hasSecondaryContact && _secondaryNameController.text.trim().isNotEmpty) ...{
                         'secondaryContactName': _secondaryNameController.text.trim(),
@@ -380,7 +350,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0,
                     ),
                     child: Text(
-                      _paymentType == 0 ? 'Procéder au paiement' : 'Payer le 1er versement',
+                      'Payer le 1er versement',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -700,31 +670,6 @@ class _SelectableCard extends StatelessWidget {
             if (trailing != null) trailing!,
             if (selected && trailing == null) const Icon(Icons.check_circle, color: AppColors.primary, size: 24),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentTypeChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _PaymentTypeChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? AppColors.primary : Colors.grey.shade300, width: 1.5),
-          ),
-          child: Center(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: selected ? Colors.white : AppColors.textSecondary))),
         ),
       ),
     );

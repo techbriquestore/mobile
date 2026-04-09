@@ -102,11 +102,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         // Get extra data passed from checkout
         final extra = GoRouterState.of(context).extra as Map<String, dynamic>? ?? {};
         final cartItems = extra['cartItems'] as List<dynamic>? ?? [];
-        final deliveryModeIndex = extra['deliveryMode'] as int? ?? 0;
-        final deliveryModes = ['STANDARD', 'EXPRESS', 'PICKUP'];
         final paymentDuration = extra['totalInstallments'] as int? ?? 1;
 
-        final addressId = extra['addressId'] as String?;
+        final rawAddressId = extra['addressId'];
+        // Only send addressId if it's a valid non-empty string
+        final addressId = (rawAddressId is String && rawAddressId.isNotEmpty) ? rawAddressId : null;
 
         final request = checkout.CreateOrderRequest(
           items: cartItems.map((item) {
@@ -117,7 +117,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             );
           }).toList(),
           deliveryAddressId: addressId,
-          deliveryMode: deliveryModes[deliveryModeIndex],
+          deliveryMode: 'STANDARD',
           paymentDuration: paymentDuration,
         );
 
@@ -477,7 +477,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               Text(
                 widget.isFirstPayment
                     ? '1er versement pour ${_realOrderNumber ?? ''}\n${widget.totalInstallments - 1} échéances restantes'
-                    : 'Commande ${_realOrderNumber ?? ''}',
+                    : 'Paiement enregistré pour\n${_realOrderNumber ?? ''}',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5),
               ),
@@ -488,24 +488,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
               const Spacer(flex: 3),
 
-              if (widget.isFirstPayment)
-                SizedBox(
-                  width: double.infinity, height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => context.push('/order-payments/${_realOrderId ?? widget.orderId}'),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
-                    child: const Text('Voir mon échéancier', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity, height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => context.go('/orders/${_realOrderId ?? widget.orderId}'),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
-                    child: const Text('Voir ma commande', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
+              SizedBox(
+                width: double.infinity, height: 52,
+                child: ElevatedButton(
+                  onPressed: () => context.push('/order-payments/${_realOrderId ?? widget.orderId}'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
+                  child: const Text('Voir mes paiements', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity, height: 48,

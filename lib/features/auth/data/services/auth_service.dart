@@ -188,7 +188,17 @@ class AuthService {
       return AuthResult.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {
       // Sign out on error to reset state
-      await _googleSignIn.signOut();
+      try { await _googleSignIn.signOut(); } catch (_) {}
+      
+      // Check if it's a configuration issue (no google-services.json, etc.)
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('apiexception') || 
+          msg.contains('sign_in_failed') || 
+          msg.contains('developer_error') ||
+          msg.contains('network_error') ||
+          msg.contains('platformexception')) {
+        throw Exception('La connexion Google n\'est pas disponible pour le moment. Utilisez l\'inscription par email.');
+      }
       rethrow;
     }
   }

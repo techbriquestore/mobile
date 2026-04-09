@@ -1,7 +1,8 @@
 ﻿class ApiConstants {
   ApiConstants._();
 
-  static const String baseUrl = 'http://10.0.2.2:3000/api/v1'; // Android emulator → localhost
+  static const String baseUrl = 'http://192.168.1.4:3000/api/v1'; // Appareil physique → IP WiFi du PC
+  static const String emulatorUrl = 'http://10.0.2.2:3000/api/v1'; // Émulateur Android → alias localhost
   static const String devUrl = 'http://localhost:3000/api/v1';   // Web / Chrome
   static const String stagingUrl = 'https://staging-api.briques.store/v1';
 
