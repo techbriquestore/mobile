@@ -14,11 +14,16 @@ class CheckoutScreen extends ConsumerStatefulWidget {
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
+enum PaymentType { instant, installment }
+
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _selectedAddressId;
 
-  // ─── Payment plan (échelonné uniquement) ───
-  int _installments = 3;
+  // ─── Type de paiement ───
+  PaymentType _paymentType = PaymentType.instant;
+
+  // ─── Payment plan (échelonné) ───
+  int _months = 3; // Durée en mois (3 à 12)
   bool _acceptedCGV = false;
 
   // ─── Correspondant secondaire (optionnel) ───
@@ -30,10 +35,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   // Frais de livraison — mode Standard uniquement
   static const double _deliveryFee = 15000;
   double _getTotal(double subtotal) => subtotal + _deliveryFee;
+  int get _totalPayments => _months * 2; // 2 paiements par mois
   double _getFirstPayment(double total) => (total * 0.15).ceilToDouble();
-  double _getInstallmentAmount(double total, double firstPayment) => 
-      ((total - firstPayment) / (_installments - 1)).ceilToDouble();
-  bool get _hasFees => _installments > 4;
+  double _getInstallmentAmount(double total, double firstPayment) =>
+      ((total - firstPayment) / (_totalPayments - 1)).ceilToDouble();
+  bool get _hasFees => _months > 6;
   double _getFees(double total) => _hasFees ? (total * 0.02) : 0;
   double _getGrandTotal(double total) => total + _getFees(total);
 
@@ -133,8 +139,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                   const SizedBox(height: 8),
 
-                  // ═══════════════ STEP 3 : Plan de paiement échelonné ═══════════════
-                  _SectionHeader(number: '3', title: 'Paiement échelonné'),
+                  // ═══════════════ STEP 3 : Type de paiement ═══════════════
+                  _SectionHeader(number: '3', title: 'Mode de paiement'),
+                  _SelectableCard(
+                    selected: _paymentType == PaymentType.instant,
+                    onTap: () => setState(() => _paymentType = PaymentType.instant),
+                    icon: Icons.flash_on_outlined,
+                    title: 'Paiement instantané',
+                    subtitle: 'Payez le montant total maintenant',
+                  ),
+                  _SelectableCard(
+                    selected: _paymentType == PaymentType.installment,
+                    onTap: () => setState(() => _paymentType = PaymentType.installment),
+                    icon: Icons.calendar_month_outlined,
+                    title: 'Paiement échelonné',
+                    subtitle: '2 paiements par mois sur 3 à 12 mois',
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // ═══════════════ STEP 4 : Plan de paiement échelonné (si sélectionné) ═══════════════
+                  if (_paymentType == PaymentType.installment) ...[                    _SectionHeader(number: '4', title: 'Détails de l\'échelonnement'),
                   const SizedBox(height: 4),
                     // Installment selector
                     Padding(
@@ -148,30 +173,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Nombre d\'échéances', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                            const Text('Durée de paiement', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [2, 3, 4, 6, 12].map((n) {
-                                final sel = _installments == n;
-                                final hasExtraFee = n > 4;
-                                return Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => setState(() => _installments = n),
-                                    child: Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: sel ? AppColors.primary : Colors.white,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: sel ? AppColors.primary : Colors.grey.shade300),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Text('${n}x', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: sel ? Colors.white : AppColors.textPrimary)),
-                                          if (hasExtraFee)
-                                            Text('+ frais', style: TextStyle(fontSize: 9, color: sel ? Colors.white70 : AppColors.error)),
-                                        ],
-                                      ),
+                            Wrap(
+                              spacing: 8, runSpacing: 8,
+                              children: [3, 4, 5, 6, 8, 10, 12].map((n) {
+                                final sel = _months == n;
+                                final hasExtraFee = n > 6;
+                                return GestureDetector(
+                                  onTap: () => setState(() => _months = n),
+                                  child: Container(
+                                    width: 72,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: sel ? AppColors.primary : Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: sel ? AppColors.primary : Colors.grey.shade300),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Text('$n mois', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: sel ? Colors.white : AppColors.textPrimary)),
+                                        Text('${n * 2} éch.', style: TextStyle(fontSize: 10, color: sel ? Colors.white70 : Colors.grey.shade500)),
+                                        if (hasExtraFee)
+                                          Text('+ frais', style: TextStyle(fontSize: 9, color: sel ? Colors.white70 : AppColors.error)),
+                                      ],
                                     ),
                                   ),
                                 );
@@ -190,7 +215,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 children: [
                                   _SummaryRow(label: '1er versement (15%)', value: '${_fmt(firstPayment)} FCFA', bold: true),
                                   const SizedBox(height: 6),
-                                  _SummaryRow(label: '${_installments - 1} échéances de', value: '${_fmt(installmentAmount)} FCFA'),
+                                  _SummaryRow(label: '$_months mois × 2 paiem./mois', value: '${_totalPayments} échéances'),
+                                  const SizedBox(height: 6),
+                                  _SummaryRow(label: '${_totalPayments - 1} échéances de', value: '${_fmt(installmentAmount)} FCFA'),
                                   if (_hasFees) ...[
                                     const SizedBox(height: 6),
                                     _SummaryRow(label: 'Frais de gestion (2%)', value: '${_fmt(fees)} FCFA', color: AppColors.error),
@@ -210,7 +237,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Prix bloqué et garanti pour toute la durée. Livraison après paiement complet ou par tranche selon l\'échéancier.',
+                                    '2 paiements par mois. Prix bloqué et garanti pour toute la durée. Livraison après paiement complet ou par tranche selon l\'échéancier.',
                                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
                                   ),
                                 ),
@@ -220,10 +247,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
+                  ],
 
-                  // ═══════════════ STEP 4 : Récapitulatif ═══════════════
-                  _SectionHeader(number: '4', title: 'Récapitulatif de la commande'),
+                  // ═══════════════ STEP 5 : Récapitulatif ═══════════════
+                  _SectionHeader(number: _paymentType == PaymentType.instant ? '4' : '5', title: 'Récapitulatif de la commande'),
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     padding: const EdgeInsets.all(18),
@@ -233,16 +261,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         _SummaryRow(label: 'Sous-total articles (${cart.itemCount})', value: '${_fmt(subtotal)} FCFA'),
                         const SizedBox(height: 10),
                         _SummaryRow(label: 'Frais de livraison', value: '${_fmt(_deliveryFee)} FCFA'),
-                        if (_hasFees) ...[
+                        if (_paymentType == PaymentType.installment && _hasFees) ...[
                           const SizedBox(height: 10),
                           _SummaryRow(label: 'Frais de gestion', value: '${_fmt(fees)} FCFA', color: AppColors.error),
                         ],
                         const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Divider(height: 1)),
                         _SummaryRow(
                           label: 'Total',
-                          value: '${_fmt(grandTotal)} FCFA',
+                          value: '${_fmt(_paymentType == PaymentType.instant ? total : grandTotal)} FCFA',
                           bold: true, color: AppColors.primary, large: true,
                         ),
+                        if (_paymentType == PaymentType.installment) ...[
                           const SizedBox(height: 8),
                           Container(
                             width: double.infinity,
@@ -254,6 +283,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -316,11 +346,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '1er versement (15%)',
+                      _paymentType == PaymentType.instant ? 'Montant total' : '1er versement (15%)',
                       style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                     ),
                     Text(
-                      '${_fmt(firstPayment)} FCFA',
+                      _paymentType == PaymentType.instant ? '${_fmt(total)} FCFA' : '${_fmt(firstPayment)} FCFA',
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary),
                     ),
                   ],
@@ -330,10 +360,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
                     onPressed: (_acceptedCGV && _selectedAddressId != null) ? () => context.push('/payment', extra: {
-                      'amount': firstPayment,
+                      'paymentType': _paymentType == PaymentType.instant ? 'instant' : 'installment',
+                      'amount': _paymentType == PaymentType.instant ? total : firstPayment,
                       'orderId': 'NEW', // Will be created by backend
-                      'isFirstPayment': true,
-                      'totalInstallments': _installments,
+                      'isFirstPayment': _paymentType == PaymentType.installment,
+                      if (_paymentType == PaymentType.installment) ...{
+                        'totalInstallments': _totalPayments, // Total échéances (mois × 2)
+                        'paymentDurationMonths': _months, // Durée en mois pour le backend
+                      },
                       'cartItems': ref.read(cartProvider.notifier).toOrderItems(),
                       'deliveryMode': 0, // Standard uniquement
                       'addressId': _selectedAddressId,
@@ -350,7 +384,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0,
                     ),
                     child: Text(
-                      'Payer le 1er versement',
+                      _paymentType == PaymentType.instant ? 'Payer maintenant' : 'Payer le 1er versement',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                   ),

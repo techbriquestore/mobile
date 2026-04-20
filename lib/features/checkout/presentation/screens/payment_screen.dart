@@ -9,12 +9,18 @@ import '../../data/services/order_service.dart' as checkout;
 import '../../data/services/payment_service.dart';
 import '../../data/providers/payment_providers.dart';
 import '../../../orders/data/providers/order_providers.dart';
+import '../../../orders/data/services/order_service.dart';
+import '../../../preorders/data/services/preorder_service.dart';
+import '../../../preorders/data/providers/preorder_providers.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
   final double amount;
   final String orderId;
   final bool isFirstPayment;
   final int totalInstallments;
+  final String? scheduleId;     // Si non-null → paiement d'une échéance
+  final String? preorderId;     // Si non-null → pré-commande associée
+  final int? scheduleIndex;     // Numéro du versement (affichage)
 
   const PaymentScreen({
     super.key,
@@ -22,6 +28,9 @@ class PaymentScreen extends ConsumerStatefulWidget {
     required this.orderId,
     this.isFirstPayment = false,
     this.totalInstallments = 1,
+    this.scheduleId,
+    this.preorderId,
+    this.scheduleIndex,
   });
 
   @override
@@ -37,6 +46,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   String? _errorMessage;
   String? _realOrderId;
   String? _realOrderNumber;
+  bool get _isSchedulePayment => widget.scheduleId != null && widget.preorderId != null;
 
   final _methods = [
     {'label': 'Mobile Money', 'icon': Icons.phone_android, 'color': const Color(0xFFFF6D00)},
@@ -95,40 +105,76 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final orderService = checkout.OrderService(ServiceLocator.apiClient);
       final paymentService = PaymentService(ServiceLocator.apiClient);
 
+      // ─── CAS 1 : Paiement d'une échéance pré-commande ───────────────────────
+      if (_isSchedulePayment) {
+        final preorderService = PreorderService(ServiceLocator.apiClient);
+        await preorderService.paySchedule(widget.scheduleId!);
+        _realOrderId = widget.preorderId;
+        _realOrderNumber = 'PC-${widget.preorderId!.substring(0, 8).toUpperCase()}';
+        ref.invalidate(preorderByIdProvider(widget.preorderId!));
+        ref.invalidate(preordersProvider);
+        if (!mounted) return;
+        setState(() { _isProcessing = false; _status = _PaymentStatus.success; });
+        return;
+      }
+
+      // ─── CAS 2 : Commande normale ou nouvelle commande ──────────────────────
       String orderId = widget.orderId;
 
-      // Step 1: Create order if new (from checkout)
+      // Step 1: Create order or preorder if new (from checkout)
       if (orderId == 'NEW') {
         // Get extra data passed from checkout
         final extra = GoRouterState.of(context).extra as Map<String, dynamic>? ?? {};
         final cartItems = extra['cartItems'] as List<dynamic>? ?? [];
-        final paymentDuration = extra['totalInstallments'] as int? ?? 1;
-
+        final paymentType = extra['paymentType'] as String? ?? 'instant';
+        
         final rawAddressId = extra['addressId'];
-        // Only send addressId if it's a valid non-empty string
         final addressId = (rawAddressId is String && rawAddressId.isNotEmpty) ? rawAddressId : null;
 
-        final request = checkout.CreateOrderRequest(
-          items: cartItems.map((item) {
-            final m = item as Map<String, dynamic>;
-            return checkout.OrderItem(
-              productId: m['productId'] as String,
-              quantity: m['quantity'] as int,
-            );
-          }).toList(),
-          deliveryAddressId: addressId,
-          deliveryMode: 'STANDARD',
-          paymentDuration: paymentDuration,
-        );
+        final items = cartItems.map((item) {
+          final m = item as Map<String, dynamic>;
+          return {
+            'productId': m['productId'] as String,
+            'quantity': m['quantity'] as int,
+          };
+        }).toList();
 
-        final order = await orderService.createOrder(request);
-        orderId = order.id;
-        _realOrderNumber = order.orderNumber;
+        if (paymentType == 'instant') {
+          final orderApiService = OrderService(ServiceLocator.apiClient);
+          final order = await orderApiService.createOrder(
+            items: items,
+            deliveryAddressId: addressId,
+            deliveryMode: 'STANDARD',
+          );
+          orderId = order.id;
+          _realOrderNumber = order.orderNumber;
+        } else {
+          // Précommande → créer + première échéance auto-payée par le backend
+          final preorderService = PreorderService(ServiceLocator.apiClient);
+          final paymentDurationMonths = extra['paymentDurationMonths'] as int? ?? 3;
+          final preorder = await preorderService.createPreorder(
+            items: items,
+            durationMonths: paymentDurationMonths,
+            deliveryAddressId: addressId,
+            deliveryMode: 'STANDARD',
+          );
+          orderId = preorder.id;
+          _realOrderNumber = 'PC-${preorder.id.substring(0, 8).toUpperCase()}';
+
+          // Pour les précommandes, PAS de simulatePayment (la 1ère échéance est déjà payée)
+          _realOrderId = orderId;
+          if (widget.orderId == 'NEW') ref.read(cartProvider.notifier).clear();
+          ref.invalidate(preordersProvider);
+          ref.invalidate(preorderByIdProvider(orderId));
+          if (!mounted) return;
+          setState(() { _isProcessing = false; _status = _PaymentStatus.success; });
+          return;
+        }
       }
 
       _realOrderId = orderId;
 
-      // Step 2: Simulate payment
+      // Step 2: Simulate payment (commandes instantanées uniquement)
       await paymentService.simulatePayment(
         orderId: orderId,
         amount: widget.amount.round(),
@@ -136,12 +182,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         providerPhone: _selectedMethod == 0 ? _phoneCtrl.text : null,
       );
 
-      // Step 3: Clear cart if this was a new order
+      // Step 3: Clear cart
       if (widget.orderId == 'NEW') {
         ref.read(cartProvider.notifier).clear();
       }
 
-      // Invalidate all order-related providers to refresh data
+      // Invalidate providers (commande instantanée)
       ref.invalidate(ordersProvider);
       ref.invalidate(orderByIdProvider(orderId));
       ref.invalidate(orderPaymentsProvider(orderId));
@@ -200,12 +246,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     child: Column(
                       children: [
                         Text(
-                          widget.isFirstPayment ? '1er versement' : 'Montant à payer',
+                          _isSchedulePayment
+                              ? 'Versement n°${widget.scheduleIndex ?? '?'}'
+                              : widget.isFirstPayment ? '1er versement' : 'Montant à payer',
                           style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.85)),
                         ),
                         const SizedBox(height: 6),
                         Text('${_fmt(widget.amount)} FCFA', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
-                        if (widget.isFirstPayment) ...[
+                        if (_isSchedulePayment) ...[  
+                          const SizedBox(height: 4),
+                          Text('Pré-commande · ${_realOrderNumber ?? 'PC-${widget.preorderId?.substring(0, 8).toUpperCase() ?? ''}'}', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75))),
+                        ] else if (widget.isFirstPayment) ...[
                           const SizedBox(height: 4),
                           Text('Commande CMD-${widget.orderId} • ${widget.totalInstallments} échéances', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75))),
                         ],
@@ -475,9 +526,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                widget.isFirstPayment
-                    ? '1er versement pour ${_realOrderNumber ?? ''}\n${widget.totalInstallments - 1} échéances restantes'
-                    : 'Paiement enregistré pour\n${_realOrderNumber ?? ''}',
+                _isSchedulePayment
+                    ? 'Versement n°${widget.scheduleIndex ?? '?'} payé\npour ${_realOrderNumber ?? ''}'
+                    : widget.isFirstPayment
+                        ? '1er versement pour ${_realOrderNumber ?? ''}\n${widget.totalInstallments - 1} échéances restantes'
+                        : 'Paiement enregistré pour\n${_realOrderNumber ?? ''}',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5),
               ),
@@ -491,9 +544,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               SizedBox(
                 width: double.infinity, height: 52,
                 child: ElevatedButton(
-                  onPressed: () => context.push('/order-payments/${_realOrderId ?? widget.orderId}'),
+                  onPressed: () {
+                    if (_isSchedulePayment && widget.preorderId != null) {
+                      context.go('/preorders/${widget.preorderId}');
+                    } else {
+                      context.push('/order-payments/${_realOrderId ?? widget.orderId}');
+                    }
+                  },
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
-                  child: const Text('Voir mes paiements', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    _isSchedulePayment ? 'Voir ma pré-commande' : 'Voir mes paiements',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

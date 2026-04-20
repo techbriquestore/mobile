@@ -34,4 +34,21 @@ class OrderService {
     });
     return OrderModel.fromJson(response.data as Map<String, dynamic>);
   }
+
+  /// Créer une commande avec paiement instantané (1x)
+  Future<OrderModel> createOrder({
+    required List<Map<String, dynamic>> items,
+    String? deliveryAddressId,
+    String deliveryMode = 'STANDARD',
+    String? deliveryNotes,
+  }) async {
+    final response = await _client.post('/orders', data: {
+      'items': items,
+      if (deliveryAddressId != null) 'deliveryAddressId': deliveryAddressId,
+      'deliveryMode': deliveryMode,
+      if (deliveryNotes != null) 'deliveryNotes': deliveryNotes,
+      'paymentDuration': 1, // Paiement immédiat
+    });
+    return OrderModel.fromJson(response.data as Map<String, dynamic>);
+  }
 }

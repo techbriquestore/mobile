@@ -147,6 +147,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           orderId: extra['orderId'] as String? ?? '',
           isFirstPayment: extra['isFirstPayment'] as bool? ?? false,
           totalInstallments: extra['totalInstallments'] as int? ?? 1,
+          scheduleId: extra['scheduleId'] as String?,
+          preorderId: extra['preorderId'] as String?,
+          scheduleIndex: extra['scheduleIndex'] as int?,
         );
       }),
       GoRoute(path: '/order-payments/:orderId', name: 'orderPayments', builder: (_, state) => OrderPaymentsScreen(orderId: state.pathParameters['orderId']!)),

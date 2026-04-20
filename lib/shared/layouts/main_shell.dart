@@ -61,9 +61,9 @@ class MainShell extends StatelessWidget {
                   onTap: () => context.go(_routes[2]),
                 ),
                 _NavItem(
-                  icon: Icons.inventory_2_outlined,
-                  activeIcon: Icons.inventory_2,
-                  label: 'Commande',
+                  icon: Icons.receipt_long_outlined,
+                  activeIcon: Icons.receipt_long,
+                  label: 'Mes Achats',
                   isActive: current == 3,
                   onTap: () => context.go(_routes[3]),
                 ),
