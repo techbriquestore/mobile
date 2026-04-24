@@ -14,6 +14,7 @@ class PreorderDetailScreen extends ConsumerWidget {
     switch (s) {
       case 'ACTIVE': return AppColors.info;
       case 'COMPLETED': return AppColors.success;
+      case 'CONVERTED': return Colors.purple;
       case 'SUSPENDED': return Colors.orange;
       case 'CANCELLED': return AppColors.error;
       default: return Colors.grey;
@@ -24,6 +25,7 @@ class PreorderDetailScreen extends ConsumerWidget {
     switch (s) {
       case 'ACTIVE': return 'En cours';
       case 'COMPLETED': return 'Complétée';
+      case 'CONVERTED': return 'Convertie en commande';
       case 'SUSPENDED': return 'Suspendue';
       case 'CANCELLED': return 'Annulée';
       default: return s;
@@ -34,6 +36,7 @@ class PreorderDetailScreen extends ConsumerWidget {
     switch (s) {
       case 'ACTIVE': return Icons.hourglass_top_rounded;
       case 'COMPLETED': return Icons.check_circle_rounded;
+      case 'CONVERTED': return Icons.swap_horiz_rounded;
       case 'SUSPENDED': return Icons.pause_circle_rounded;
       case 'CANCELLED': return Icons.cancel_rounded;
       default: return Icons.circle;
@@ -88,6 +91,10 @@ class _PreorderDetailBody extends ConsumerWidget {
     final progress = totalCount > 0 ? paidCount / totalCount : 0.0;
     final statusColor = PreorderDetailScreen._statusColor(preorder.status);
     final isCompleted = preorder.status == 'COMPLETED';
+    final isSuspended = preorder.status == 'SUSPENDED';
+    final isCancelled = preorder.status == 'CANCELLED';
+    final isConverted = preorder.status == 'CONVERTED';
+    final canPaySchedules = !isSuspended && !isCancelled && !isConverted && !isCompleted;
 
     // Prochaine échéance non payée
     final nextSchedule = schedules
@@ -267,6 +274,26 @@ class _PreorderDetailBody extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
+          // ═══ Banner si suspendue ═══
+          if (isSuspended)
+            Container(
+              color: Colors.orange.shade50,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(children: [
+                Icon(Icons.pause_circle_rounded, color: Colors.orange.shade700, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Pré-commande suspendue. Les paiements sont temporairement bloqués.',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.orange.shade800),
+                  ),
+                ),
+              ]),
+            ),
+
+          if (isSuspended) const SizedBox(height: 12),
+
           // ═══ Échéancier complet ═══
           _Section(
             title: 'Échéancier complet (${schedules.length} versements)',
@@ -280,6 +307,7 @@ class _PreorderDetailBody extends ConsumerWidget {
                   isNext: isNext,
                   fmt: fmt,
                   preorderId: preorder.id,
+                  canPay: canPaySchedules,
                 );
               }),
             ),
@@ -332,6 +360,7 @@ class _ScheduleRow extends ConsumerWidget {
   final bool isNext;
   final DateFormat fmt;
   final String preorderId;
+  final bool canPay;
 
   const _ScheduleRow({
     required this.index,
@@ -339,6 +368,7 @@ class _ScheduleRow extends ConsumerWidget {
     required this.isNext,
     required this.fmt,
     required this.preorderId,
+    this.canPay = true,
   });
 
   Color get _color {
@@ -373,7 +403,7 @@ class _ScheduleRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isPaid = schedule.status == 'PAID';
-    final canPay = ['UPCOMING', 'DUE', 'OVERDUE'].contains(schedule.status);
+    final isPayable = canPay && ['UPCOMING', 'DUE', 'OVERDUE'].contains(schedule.status);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -422,7 +452,7 @@ class _ScheduleRow extends ConsumerWidget {
           ])
         else
           ElevatedButton.icon(
-            onPressed: canPay
+            onPressed: isPayable
                 ? () => context.push('/payment', extra: {
                     'amount': schedule.amount.toDouble(),
                     'orderId': '',

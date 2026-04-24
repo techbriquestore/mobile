@@ -1,59 +1,74 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/providers/preorder_providers.dart';
+import '../../domain/models/preorder.dart';
 
-enum _PreorderStatus {
-  active('En cours', AppColors.info, Icons.hourglass_top),
-  completed('Terminée', AppColors.success, Icons.check_circle),
-  cancelled('Annulée', AppColors.error, Icons.cancel);
-
-  final String label;
-  final Color color;
-  final IconData icon;
-  const _PreorderStatus(this.label, this.color, this.icon);
+Color _statusColor(String s) {
+  switch (s) {
+    case 'ACTIVE': return AppColors.info;
+    case 'COMPLETED': return AppColors.success;
+    case 'CONVERTED': return Colors.purple;
+    case 'SUSPENDED': return Colors.orange;
+    case 'CANCELLED': return AppColors.error;
+    default: return Colors.grey;
+  }
 }
 
-class _MockPreorder {
-  final String id, reference, productName;
-  final double totalAmount, paidAmount;
-  final int totalInstallments, paidInstallments;
-  final _PreorderStatus status;
-  final DateTime nextDueDate;
-
-  const _MockPreorder({
-    required this.id, required this.reference, required this.productName,
-    required this.totalAmount, required this.paidAmount,
-    required this.totalInstallments, required this.paidInstallments,
-    required this.status, required this.nextDueDate,
-  });
-
-  double get progress => paidAmount / totalAmount;
+String _statusLabel(String s) {
+  switch (s) {
+    case 'ACTIVE': return 'En cours';
+    case 'COMPLETED': return 'Complétée';
+    case 'CONVERTED': return 'Convertie';
+    case 'SUSPENDED': return 'Suspendue';
+    case 'CANCELLED': return 'Annulée';
+    default: return s;
+  }
 }
 
-final _mockPreorders = [
-  _MockPreorder(id: '1', reference: 'PRE-2026-0012', productName: 'Brique Pleine 20cm (5000 unités)', totalAmount: 1250000, paidAmount: 500000, totalInstallments: 4, paidInstallments: 2, status: _PreorderStatus.active, nextDueDate: DateTime.now().add(const Duration(days: 15))),
-  _MockPreorder(id: '2', reference: 'PRE-2026-0008', productName: 'Hourdis Français 16cm (2000 unités)', totalAmount: 800000, paidAmount: 800000, totalInstallments: 3, paidInstallments: 3, status: _PreorderStatus.completed, nextDueDate: DateTime.now()),
-  _MockPreorder(id: '3', reference: 'PRE-2026-0005', productName: 'Brique Creuse 12cm (3000 unités)', totalAmount: 480000, paidAmount: 120000, totalInstallments: 4, paidInstallments: 1, status: _PreorderStatus.cancelled, nextDueDate: DateTime.now()),
-];
+IconData _statusIcon(String s) {
+  switch (s) {
+    case 'ACTIVE': return Icons.hourglass_top;
+    case 'COMPLETED': return Icons.check_circle;
+    case 'CONVERTED': return Icons.swap_horiz_rounded;
+    case 'SUSPENDED': return Icons.pause_circle;
+    case 'CANCELLED': return Icons.cancel;
+    default: return Icons.circle;
+  }
+}
 
-class PreordersScreen extends StatefulWidget {
+String _fmt(double v) {
+  final s = v.toStringAsFixed(0);
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+    buf.write(s[i]);
+  }
+  return buf.toString();
+}
+
+class PreordersScreen extends ConsumerStatefulWidget {
   const PreordersScreen({super.key});
 
   @override
-  State<PreordersScreen> createState() => _PreordersScreenState();
+  ConsumerState<PreordersScreen> createState() => _PreordersScreenState();
 }
 
-class _PreordersScreenState extends State<PreordersScreen> {
-  _PreorderStatus? _filter;
+class _PreordersScreenState extends ConsumerState<PreordersScreen> {
+  String? _filter;
 
-  List<_MockPreorder> get _filtered {
-    if (_filter == null) return _mockPreorders;
-    return _mockPreorders.where((p) => p.status == _filter).toList();
-  }
+  static const _filters = [
+    (null, 'Toutes', AppColors.primary),
+    ('ACTIVE', 'En cours', AppColors.info),
+    ('COMPLETED', 'Complétées', AppColors.success),
+    ('CONVERTED', 'Converties', Colors.purple),
+    ('CANCELLED', 'Annulées', AppColors.error),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final preorders = _filtered;
+    final preordersAsync = ref.watch(preordersProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -62,9 +77,6 @@ class _PreordersScreenState extends State<PreordersScreen> {
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary), onPressed: () => context.pop()),
         centerTitle: true,
         title: const Text('Mes Pré-commandes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-        actions: [
-          IconButton(icon: const Icon(Icons.add_circle_outline, color: AppColors.primary), onPressed: () => context.push('/preorders/create')),
-        ],
       ),
       body: Column(
         children: [
@@ -76,85 +88,129 @@ class _PreordersScreenState extends State<PreordersScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _Chip(label: 'Toutes', selected: _filter == null, color: AppColors.primary, onTap: () => setState(() => _filter = null)),
-                  const SizedBox(width: 8),
-                  ..._PreorderStatus.values.map((s) => Padding(
+                children: _filters.map((f) {
+                  final (status, label, color) = f;
+                  return Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: _Chip(label: s.label, selected: _filter == s, color: s.color, onTap: () => setState(() => _filter = s)),
-                  )),
-                ],
+                    child: _Chip(
+                      label: label,
+                      selected: _filter == status,
+                      color: color,
+                      onTap: () {
+                        setState(() => _filter = status);
+                        ref.read(preorderFiltersProvider.notifier).setStatus(status);
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),
           Expanded(
-            child: preorders.isEmpty
-                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: preordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text('Impossible de charger', style: TextStyle(color: Colors.grey.shade500)),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => ref.invalidate(preordersProvider),
+                    child: const Text('Réessayer', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+              ),
+              data: (page) {
+                final preorders = page.data;
+                if (preorders.isEmpty) {
+                  return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey.shade300),
                     const SizedBox(height: 16),
                     Text('Aucune pré-commande', style: TextStyle(fontSize: 16, color: Colors.grey.shade500)),
-                  ]))
-                : ListView.separated(
+                  ]));
+                }
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(preordersProvider),
+                  child: ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: preorders.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) {
-                      final p = preorders[i];
-                      return GestureDetector(
-                        onTap: () => context.push('/preorders/${p.id}'),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(p.reference, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: p.status.color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      Icon(p.status.icon, size: 14, color: p.status.color),
-                                      const SizedBox(width: 4),
-                                      Text(p.status.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.status.color)),
-                                    ]),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(p.productName, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                              const SizedBox(height: 14),
-                              // Progress bar
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: p.progress,
-                                  backgroundColor: Colors.grey.shade200,
-                                  color: p.status.color,
-                                  minHeight: 6,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('${p.paidInstallments}/${p.totalInstallments} échéances', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                                  RichText(text: TextSpan(children: [
-                                    TextSpan(text: '${p.paidAmount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                                    TextSpan(text: ' / ${p.totalAmount.toStringAsFixed(0)} F', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                                  ])),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                    itemBuilder: (_, i) => _PreorderCard(preorder: preorders[i]),
                   ),
+                );
+              },
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PreorderCard extends StatelessWidget {
+  final Preorder preorder;
+  const _PreorderCard({required this.preorder});
+
+  @override
+  Widget build(BuildContext context) {
+    final schedules = preorder.schedules;
+    final paidCount = schedules.where((s) => s.status == 'PAID').length;
+    final totalCount = schedules.length;
+    final paidAmount = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
+    final progress = preorder.totalAmount > 0 ? paidAmount / preorder.totalAmount : 0.0;
+    final color = _statusColor(preorder.status);
+    final label = _statusLabel(preorder.status);
+    final icon = _statusIcon(preorder.status);
+
+    return GestureDetector(
+      onTap: () => context.push('/preorders/${preorder.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('PC-${preorder.id.substring(0, 8).toUpperCase()}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icon, size: 14, color: color),
+                    const SizedBox(width: 4),
+                    Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+                  ]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text('${preorder.totalQuantity} unités — Prix bloqué : ${_fmt(preorder.lockedPrice.toDouble())} F/u', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: Colors.grey.shade200,
+                color: color,
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('$paidCount/$totalCount échéances', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                RichText(text: TextSpan(children: [
+                  TextSpan(text: _fmt(paidAmount.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                  TextSpan(text: ' / ${_fmt(preorder.totalAmount.toDouble())} F', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                ])),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
