@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/service_locator.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
-export '../models/product.dart' show CategoryModel;
+export '../models/product.dart' show CategoryModel, Product;
 
 // ─── Service provider ─────────────────────────────────────────────────────────
 
@@ -105,6 +105,14 @@ final catalogProductsProvider = FutureProvider.autoDispose<ProductsPage>((ref) a
     page: filters.page,
     pageSize: filters.pageSize,
   );
+});
+
+// ─── Provider estimateur (tous produits actifs, sans autoDispose) ─────────────
+
+final estimatorProductsProvider = FutureProvider<List<Product>>((ref) async {
+  final service = ref.read(productServiceProvider);
+  final page = await service.getProducts(page: 1, pageSize: 100);
+  return page.data;
 });
 
 // ─── Provider produit par ID ──────────────────────────────────────────────────
