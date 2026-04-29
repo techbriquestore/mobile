@@ -15,7 +15,6 @@ import '../../features/cart/presentation/screens/cart_screen.dart';
 import '../../features/checkout/presentation/screens/checkout_screen.dart';
 import '../../features/orders/presentation/screens/orders_screen.dart';
 import '../../features/orders/presentation/screens/order_detail_screen.dart';
-import '../../features/preorders/presentation/screens/preorders_screen.dart';
 import '../../features/preorders/presentation/screens/preorder_detail_screen.dart';
 import '../../features/preorders/presentation/screens/create_preorder_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
@@ -157,12 +156,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         );
       }),
       GoRoute(path: '/order-payments/:orderId', name: 'orderPayments', builder: (_, state) => OrderPaymentsScreen(orderId: state.pathParameters['orderId']!)),
-      GoRoute(path: '/preorders', name: 'preorders', builder: (_, __) => const PreordersScreen(),
-        routes: [
-          GoRoute(path: 'create', name: 'createPreorder', builder: (_, __) => const CreatePreorderScreen()),
-          GoRoute(path: ':preorderId', name: 'preorderDetail', builder: (_, state) => PreorderDetailScreen(preorderId: state.pathParameters['preorderId']!)),
-        ],
-      ),
+      // /preorders redirige vers l'onglet "Mes Achats > Pré-commandes" (unification navigation)
+      GoRoute(path: '/preorders', redirect: (_, __) => '/orders?tab=preorders'),
+      GoRoute(path: '/preorders/create', name: 'createPreorder', builder: (_, __) => const CreatePreorderScreen()),
+      GoRoute(path: '/preorders/:preorderId', name: 'preorderDetail', builder: (_, state) => PreorderDetailScreen(preorderId: state.pathParameters['preorderId']!)),
       GoRoute(path: '/order-tracking/:orderId', name: 'orderTracking', builder: (_, state) => OrderTrackingScreen(orderId: state.pathParameters['orderId']!)),
       GoRoute(path: '/notifications', name: 'notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/support', name: 'support', builder: (_, __) => const SupportScreen()),
