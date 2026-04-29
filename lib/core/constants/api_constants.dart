@@ -8,14 +8,15 @@
   static const String productionUrl = 'https://backend-43ba.onrender.com/api/v1'; // Backend déployé sur Render
 
   // Bascule entre local et production → change à true pour utiliser le backend déployé
-  static const bool useProduction = false;
+  static const bool useProduction = true;
 
   // URL utilisée selon la plateforme et le flag useProduction
   static String get baseUrl => useProduction ? productionUrl : localUrl;
 
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 15);
-  static const Duration uploadTimeout = Duration(seconds: 60);
+  // Timeouts plus longs si on utilise le backend Render (cold start ~30-60s sur free tier)
+  static Duration get connectTimeout => useProduction ? const Duration(seconds: 90) : const Duration(seconds: 15);
+  static Duration get receiveTimeout => useProduction ? const Duration(seconds: 90) : const Duration(seconds: 15);
+  static Duration get uploadTimeout => useProduction ? const Duration(seconds: 180) : const Duration(seconds: 60);
 
   // Auth
   static const String login = '/auth/login';

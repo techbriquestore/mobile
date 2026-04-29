@@ -17,15 +17,17 @@ class ApiClient {
   ApiClient({
     required ConnectivityService connectivityService,
   })  : _connectivityService = connectivityService {
-    // Web → localhost, Android émulateur → 10.0.2.2, Appareil physique → IP WiFi
+    // Priorité au flag useProduction : si true → backend Render pour toutes les plateformes
     final String baseUrl;
-    if (kIsWeb) {
+    if (ApiConstants.useProduction) {
+      baseUrl = ApiConstants.productionUrl;
+    } else if (kIsWeb) {
       baseUrl = ApiConstants.devUrl;
     } else if (Platform.isAndroid) {
-      // En debug (émulateur), utiliser 10.0.2.2 ; en release (APK physique), IP WiFi
-      baseUrl = kDebugMode ? ApiConstants.emulatorUrl : ApiConstants.baseUrl;
+      // Émulateur Android → 10.0.2.2 ; appareil physique → IP WiFi du PC
+      baseUrl = kDebugMode ? ApiConstants.emulatorUrl : ApiConstants.localUrl;
     } else {
-      baseUrl = ApiConstants.baseUrl;
+      baseUrl = ApiConstants.localUrl;
     }
 
     _dio = Dio(
