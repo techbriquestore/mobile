@@ -46,7 +46,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   String? _errorMessage;
   String? _realOrderId;
   String? _realOrderNumber;
+  bool _isPreorderCreation = false; // Set à true si on vient de créer une précommande
   bool get _isSchedulePayment => widget.scheduleId != null && widget.preorderId != null;
+  bool get _isPreorderContext => _isSchedulePayment || _isPreorderCreation;
 
   final _methods = [
     {'label': 'Mobile Money', 'icon': Icons.phone_android, 'color': const Color(0xFFFF6D00)},
@@ -163,6 +165,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
           // Pour les précommandes, PAS de simulatePayment (la 1ère échéance est déjà payée)
           _realOrderId = orderId;
+          _isPreorderCreation = true;
           if (widget.orderId == 'NEW') ref.read(cartProvider.notifier).clear();
           ref.invalidate(preordersProvider);
           ref.invalidate(preorderByIdProvider(orderId));
@@ -541,30 +544,36 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
               const Spacer(flex: 3),
 
+              // Bouton principal : voir le détail (précommande ou commande)
               SizedBox(
                 width: double.infinity, height: 52,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_isSchedulePayment && widget.preorderId != null) {
-                      context.go('/preorders/${widget.preorderId}');
+                    if (_isPreorderContext) {
+                      final id = _isSchedulePayment ? widget.preorderId! : (_realOrderId ?? widget.orderId);
+                      context.go('/preorders/$id');
                     } else {
-                      context.push('/order-payments/${_realOrderId ?? widget.orderId}');
+                      context.go('/orders/${_realOrderId ?? widget.orderId}');
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                   child: Text(
-                    _isSchedulePayment ? 'Voir ma pré-commande' : 'Voir mes paiements',
+                    _isPreorderContext ? 'Voir cette pré-commande' : 'Voir cette commande',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
+              // Bouton secondaire : liste des précommandes/commandes
               SizedBox(
                 width: double.infinity, height: 48,
                 child: OutlinedButton(
-                  onPressed: () => context.go('/home'),
+                  onPressed: () => context.go(_isPreorderContext ? '/preorders' : '/orders'),
                   style: OutlinedButton.styleFrom(foregroundColor: AppColors.textPrimary, side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  child: const Text('Retour à l\'accueil', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  child: Text(
+                    _isPreorderContext ? 'Toutes mes pré-commandes' : 'Toutes mes commandes',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
