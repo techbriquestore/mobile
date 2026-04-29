@@ -1,10 +1,17 @@
 ﻿class ApiConstants {
   ApiConstants._();
 
-  static const String baseUrl = 'http://192.168.1.146:3000/api/v1'; // Appareil physique → IP WiFi du PC
+  // URLs disponibles
+  static const String localUrl = 'http://192.168.1.146:3000/api/v1'; // Appareil physique → IP WiFi du PC
   static const String emulatorUrl = 'http://10.0.2.2:3000/api/v1'; // Émulateur Android → alias localhost
-  static const String devUrl = 'http://localhost:3000/api/v1';   // Web / Chrome
-  static const String stagingUrl = 'https://staging-api.briques.store/v1';
+  static const String devUrl = 'http://localhost:3000/api/v1'; // Web / Chrome
+  static const String productionUrl = 'https://backend-43ba.onrender.com/api/v1'; // Backend déployé sur Render
+
+  // Bascule entre local et production → change à true pour utiliser le backend déployé
+  static const bool useProduction = false;
+
+  // URL utilisée selon la plateforme et le flag useProduction
+  static String get baseUrl => useProduction ? productionUrl : localUrl;
 
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
