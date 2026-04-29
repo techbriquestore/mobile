@@ -116,7 +116,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(path: '/simulator', name: 'simulator', builder: (_, __) => const SimulatorScreen()),
-          GoRoute(path: '/orders', name: 'orders', builder: (_, __) => const OrdersScreen(),
+          GoRoute(path: '/orders', name: 'orders', builder: (_, state) {
+            final tab = state.uri.queryParameters['tab'];
+            final initialTab = (tab == 'preorders' || tab == '1') ? 1 : 0;
+            return OrdersScreen(initialTab: initialTab);
+          },
             routes: [
               GoRoute(path: ':orderId', name: 'orderDetail', builder: (_, state) => OrderDetailScreen(orderId: state.pathParameters['orderId']!)),
             ],

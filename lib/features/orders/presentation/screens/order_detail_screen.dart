@@ -20,7 +20,7 @@ class OrderDetailScreen extends ConsumerWidget {
       loading: () => Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white, elevation: 0,
-          leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary), onPressed: () => context.pop()),
+          leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary), onPressed: () => context.canPop() ? context.pop() : context.go('/orders')),
           title: const Text('Chargement...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           centerTitle: true,
         ),
@@ -29,7 +29,7 @@ class OrderDetailScreen extends ConsumerWidget {
       error: (err, _) => Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white, elevation: 0,
-          leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary), onPressed: () => context.pop()),
+          leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary), onPressed: () => context.canPop() ? context.pop() : context.go('/orders')),
           title: const Text('Erreur', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           centerTitle: true,
         ),
@@ -119,7 +119,7 @@ class _OrderDetailBody extends ConsumerWidget {
             pinned: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 20),
-              onPressed: () => context.pop(),
+              onPressed: () => context.canPop() ? context.pop() : context.go('/orders'),
             ),
             title: Column(
               children: [

@@ -14,7 +14,9 @@ import '../../data/providers/order_providers.dart';
 // ════════════════════════════════════════════════════════
 
 class OrdersScreen extends ConsumerStatefulWidget {
-  const OrdersScreen({super.key});
+  /// Onglet initial : 0 = Commandes, 1 = Pré-commandes
+  final int initialTab;
+  const OrdersScreen({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
@@ -27,7 +29,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 1),
+    );
   }
 
   @override

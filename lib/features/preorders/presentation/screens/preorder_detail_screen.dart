@@ -53,7 +53,13 @@ class PreorderDetailScreen extends ConsumerWidget {
         backgroundColor: Colors.white, elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/orders?tab=preorders');
+            }
+          },
         ),
         centerTitle: true,
         title: const Text('Pré-commande', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),

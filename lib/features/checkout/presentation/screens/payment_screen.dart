@@ -568,7 +568,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               SizedBox(
                 width: double.infinity, height: 48,
                 child: OutlinedButton(
-                  onPressed: () => context.go(_isPreorderContext ? '/preorders' : '/orders'),
+                  onPressed: () => context.go(_isPreorderContext ? '/orders?tab=preorders' : '/orders'),
                   style: OutlinedButton.styleFrom(foregroundColor: AppColors.textPrimary, side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                   child: Text(
                     _isPreorderContext ? 'Toutes mes pré-commandes' : 'Toutes mes commandes',
