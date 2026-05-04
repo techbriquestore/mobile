@@ -12,6 +12,7 @@ class PreorderDetailScreen extends ConsumerWidget {
 
   static Color _statusColor(String s) {
     switch (s) {
+      case 'PENDING_DEPOSIT': return Colors.amber;
       case 'ACTIVE': return AppColors.info;
       case 'COMPLETED': return AppColors.success;
       case 'CONVERTED': return Colors.purple;
@@ -23,6 +24,7 @@ class PreorderDetailScreen extends ConsumerWidget {
 
   static String _statusLabel(String s) {
     switch (s) {
+      case 'PENDING_DEPOSIT': return 'Acompte requis';
       case 'ACTIVE': return 'En cours';
       case 'COMPLETED': return 'Complétée';
       case 'CONVERTED': return 'Convertie en commande';
@@ -34,6 +36,7 @@ class PreorderDetailScreen extends ConsumerWidget {
 
   static IconData _statusIcon(String s) {
     switch (s) {
+      case 'PENDING_DEPOSIT': return Icons.account_balance_wallet_rounded;
       case 'ACTIVE': return Icons.hourglass_top_rounded;
       case 'COMPLETED': return Icons.check_circle_rounded;
       case 'CONVERTED': return Icons.swap_horiz_rounded;
@@ -96,11 +99,12 @@ class _PreorderDetailBody extends ConsumerWidget {
     final totalCount = schedules.length;
     final progress = totalCount > 0 ? paidCount / totalCount : 0.0;
     final statusColor = PreorderDetailScreen._statusColor(preorder.status);
+    final isPendingDeposit = preorder.status == 'PENDING_DEPOSIT';
     final isCompleted = preorder.status == 'COMPLETED';
     final isSuspended = preorder.status == 'SUSPENDED';
     final isCancelled = preorder.status == 'CANCELLED';
     final isConverted = preorder.status == 'CONVERTED';
-    final canPaySchedules = !isSuspended && !isCancelled && !isConverted && !isCompleted;
+    final canPaySchedules = !isPendingDeposit && !isSuspended && !isCancelled && !isConverted && !isCompleted;
 
     // Prochaine échéance non payée
     final nextSchedule = schedules
@@ -256,15 +260,117 @@ class _PreorderDetailBody extends ConsumerWidget {
 
           const SizedBox(height: 12),
 
+          // ═══ Bandeau acompte ═══
+          if (isPendingDeposit)
+            Container(
+              color: Colors.amber.shade50,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                children: [
+                  Row(children: [
+                    Icon(Icons.account_balance_wallet_rounded, color: Colors.amber.shade800, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Acompte requis pour activer',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.amber.shade900),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_fmt(preorder.depositAmount.toDouble())} FCFA (${preorder.depositPercentage}%)',
+                            style: TextStyle(fontSize: 13, color: Colors.amber.shade700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final service = ref.read(preorderServiceProvider);
+                        try {
+                          await service.confirmDeposit(preorder.id);
+                          ref.invalidate(preorderByIdProvider(preorder.id));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Acompte confirmé ! Pré-commande activée.'), backgroundColor: AppColors.success),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Erreur : $e'), backgroundColor: AppColors.error),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.payment_rounded, size: 18),
+                      label: const Text('Confirmer le paiement de l\'acompte'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (isPendingDeposit) const SizedBox(height: 12),
+
+          // ═══ Produits commandés ═══
+          if (preorder.items.isNotEmpty)
+            _Section(
+              title: 'Produits (${preorder.items.length})',
+              child: Column(
+                children: preorder.items.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(color: AppColors.info.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.inventory_2_rounded, size: 20, color: AppColors.info),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.productName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              Text('${item.quantity} x ${_fmt(item.lockedPrice.toDouble())} FCFA', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                            ],
+                          ),
+                        ),
+                        Text('${_fmt(item.subtotal.toDouble())} F', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          if (preorder.items.isNotEmpty) const SizedBox(height: 12),
+
           // ═══ Résumé financier ═══
           _Section(
             title: 'Résumé financier',
             child: Column(children: [
               _InfoRow(label: 'Montant total', value: '${_fmt(preorder.totalAmount.toDouble())} FCFA', bold: true),
+              _InfoRow(label: 'Acompte (${preorder.depositPercentage}%)', value: '${_fmt(preorder.depositAmount.toDouble())} FCFA', valueColor: preorder.isDepositPaid ? AppColors.success : Colors.amber.shade700),
               _InfoRow(label: 'Déjà payé', value: '${_fmt(preorder.amountPaid.toDouble())} FCFA', valueColor: AppColors.success),
               _InfoRow(label: 'Reste à payer', value: '${_fmt(preorder.remaining.toDouble())} FCFA', valueColor: preorder.remaining > 0 ? AppColors.error : AppColors.success),
-              _InfoRow(label: 'Prix unitaire bloqué', value: '${_fmt(preorder.lockedPrice.toDouble())} FCFA'),
-              _InfoRow(label: 'Quantité', value: '${preorder.totalQuantity} unités'),
+              _InfoRow(label: 'Durée', value: '${preorder.durationMonths} mois'),
             ]),
           ),
           const SizedBox(height: 12),

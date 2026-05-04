@@ -84,6 +84,14 @@ final preorderByIdProvider =
   return service.getPreorderById(id);
 });
 
+// ─── Provider pour confirmer l'acompte ────────────────────────────────────────
+
+final confirmDepositProvider =
+    FutureProvider.autoDispose.family<Preorder, String>((ref, preorderId) async {
+  final service = ref.read(preorderServiceProvider);
+  return service.confirmDeposit(preorderId);
+});
+
 // ─── Provider pour payer une échéance ───────────────────────────────────────────
 
 final payScheduleProvider =

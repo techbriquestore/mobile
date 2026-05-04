@@ -1,50 +1,64 @@
 class Preorder {
   final String id;
   final String userId;
-  final String productId;
-  final int totalQuantity;
   final int totalAmount;
-  final int lockedPrice;
+  final int depositPercentage;
+  final int depositAmount;
+  final DateTime? depositPaidAt;
+  final int durationMonths;
   final String status;
   final DateTime startDate;
   final DateTime endDate;
   final String? deliveryAddressId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<PreorderItem> items;
   final List<PreorderSchedule> schedules;
   final PreorderUser? user;
 
   Preorder({
     required this.id,
     required this.userId,
-    required this.productId,
-    required this.totalQuantity,
     required this.totalAmount,
-    required this.lockedPrice,
+    required this.depositPercentage,
+    required this.depositAmount,
+    this.depositPaidAt,
+    required this.durationMonths,
     required this.status,
     required this.startDate,
     required this.endDate,
     this.deliveryAddressId,
     required this.createdAt,
     required this.updatedAt,
+    this.items = const [],
     this.schedules = const [],
     this.user,
   });
+
+  bool get isDepositPaid => depositPaidAt != null;
+  int get remainingAmount => totalAmount - depositAmount;
 
   factory Preorder.fromJson(Map<String, dynamic> json) {
     return Preorder(
       id: json['id'] as String,
       userId: json['userId'] as String,
-      productId: json['productId'] as String,
-      totalQuantity: json['totalQuantity'] as int,
       totalAmount: json['totalAmount'] as int,
-      lockedPrice: json['lockedPrice'] as int,
+      depositPercentage: (json['depositPercentage'] as num?)?.toInt() ?? 15,
+      depositAmount: (json['depositAmount'] as num?)?.toInt() ?? 0,
+      depositPaidAt: json['depositPaidAt'] != null
+          ? DateTime.parse(json['depositPaidAt'] as String)
+          : null,
+      durationMonths: (json['durationMonths'] as num?)?.toInt() ?? 3,
       status: json['status'] as String,
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       deliveryAddressId: json['deliveryAddressId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => PreorderItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       schedules: (json['schedules'] as List<dynamic>?)
               ?.map((e) => PreorderSchedule.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -56,12 +70,46 @@ class Preorder {
   }
 }
 
+class PreorderItem {
+  final String id;
+  final String preorderId;
+  final String productId;
+  final int quantity;
+  final int lockedPrice;
+  final int subtotal;
+  final Map<String, dynamic>? product;
+
+  PreorderItem({
+    required this.id,
+    required this.preorderId,
+    required this.productId,
+    required this.quantity,
+    required this.lockedPrice,
+    required this.subtotal,
+    this.product,
+  });
+
+  String get productName => product?['name'] as String? ?? 'Produit';
+  String get productReference => product?['reference'] as String? ?? '';
+
+  factory PreorderItem.fromJson(Map<String, dynamic> json) {
+    return PreorderItem(
+      id: json['id'] as String,
+      preorderId: json['preorderId'] as String,
+      productId: json['productId'] as String,
+      quantity: json['quantity'] as int,
+      lockedPrice: json['lockedPrice'] as int,
+      subtotal: json['subtotal'] as int,
+      product: json['product'] as Map<String, dynamic>?,
+    );
+  }
+}
+
 class PreorderSchedule {
   final String id;
   final String preorderId;
   final DateTime dueDate;
   final int amount;
-  final int quantity;
   final String status;
   final DateTime? paidAt;
   final bool reminderSent;
@@ -73,7 +121,6 @@ class PreorderSchedule {
     required this.preorderId,
     required this.dueDate,
     required this.amount,
-    required this.quantity,
     required this.status,
     this.paidAt,
     required this.reminderSent,
@@ -87,12 +134,11 @@ class PreorderSchedule {
       preorderId: json['preorderId'] as String,
       dueDate: DateTime.parse(json['dueDate'] as String),
       amount: json['amount'] as int,
-      quantity: json['quantity'] as int,
       status: json['status'] as String,
       paidAt: json['paidAt'] != null
           ? DateTime.parse(json['paidAt'] as String)
           : null,
-      reminderSent: json['reminderSent'] as bool,
+      reminderSent: (json['reminderSent'] as bool?) ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -158,6 +204,7 @@ class PreordersPage {
 class PreorderDetail extends Preorder {
   final int amountPaid;
   final int remaining;
+  final int depositPaid;
   final int paidSchedules;
   final int totalSchedules;
   final int progress;
@@ -166,20 +213,23 @@ class PreorderDetail extends Preorder {
   PreorderDetail({
     required super.id,
     required super.userId,
-    required super.productId,
-    required super.totalQuantity,
     required super.totalAmount,
-    required super.lockedPrice,
+    required super.depositPercentage,
+    required super.depositAmount,
+    super.depositPaidAt,
+    required super.durationMonths,
     required super.status,
     required super.startDate,
     required super.endDate,
     super.deliveryAddressId,
     required super.createdAt,
     required super.updatedAt,
+    super.items,
     super.schedules,
     super.user,
     required this.amountPaid,
     required this.remaining,
+    required this.depositPaid,
     required this.paidSchedules,
     required this.totalSchedules,
     required this.progress,
@@ -190,16 +240,23 @@ class PreorderDetail extends Preorder {
     return PreorderDetail(
       id: json['id'] as String,
       userId: json['userId'] as String,
-      productId: json['productId'] as String,
-      totalQuantity: json['totalQuantity'] as int,
       totalAmount: json['totalAmount'] as int,
-      lockedPrice: json['lockedPrice'] as int,
+      depositPercentage: (json['depositPercentage'] as num?)?.toInt() ?? 15,
+      depositAmount: (json['depositAmount'] as num?)?.toInt() ?? 0,
+      depositPaidAt: json['depositPaidAt'] != null
+          ? DateTime.parse(json['depositPaidAt'] as String)
+          : null,
+      durationMonths: (json['durationMonths'] as num?)?.toInt() ?? 3,
       status: json['status'] as String,
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       deliveryAddressId: json['deliveryAddressId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => PreorderItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       schedules: (json['schedules'] as List<dynamic>?)
               ?.map((e) => PreorderSchedule.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -207,11 +264,12 @@ class PreorderDetail extends Preorder {
       user: json['user'] != null
           ? PreorderUser.fromJson(json['user'] as Map<String, dynamic>)
           : null,
-      amountPaid: json['amountPaid'] as int,
-      remaining: json['remaining'] as int,
-      paidSchedules: json['paidSchedules'] as int,
-      totalSchedules: json['totalSchedules'] as int,
-      progress: json['progress'] as int,
+      amountPaid: (json['amountPaid'] as num?)?.toInt() ?? 0,
+      remaining: (json['remaining'] as num?)?.toInt() ?? 0,
+      depositPaid: (json['depositPaid'] as num?)?.toInt() ?? 0,
+      paidSchedules: (json['paidSchedules'] as num?)?.toInt() ?? 0,
+      totalSchedules: (json['totalSchedules'] as num?)?.toInt() ?? 0,
+      progress: (json['progress'] as num?)?.toInt() ?? 0,
       nextSchedule: json['nextSchedule'] != null
           ? PreorderSchedule.fromJson(json['nextSchedule'] as Map<String, dynamic>)
           : null,

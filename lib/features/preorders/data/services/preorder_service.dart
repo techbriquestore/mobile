@@ -46,16 +46,22 @@ class PreorderService {
     return PreorderDetail.fromJson(response.data as Map<String, dynamic>);
   }
 
-  /// Simuler les options d'échelonnement
-  Future<List<Map<String, dynamic>>> getInstallmentOptions(int totalAmount) async {
+  /// Simuler les options d'échelonnement (inclut l'acompte)
+  Future<Map<String, dynamic>> getInstallmentOptions(int totalAmount) async {
     final response = await _client.get(
       '/preorders/installment-options',
       queryParams: {'totalAmount': totalAmount.toString()},
     );
-    return List<Map<String, dynamic>>.from(response.data as List<dynamic>);
+    return response.data as Map<String, dynamic>;
   }
 
-  /// Payer une échéance (client)
+  /// Confirmer le paiement de l'acompte (simulé)
+  Future<Preorder> confirmDeposit(String preorderId) async {
+    final response = await _client.post('/preorders/$preorderId/confirm-deposit');
+    return Preorder.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Payer une échéance (simulé)
   Future<PreorderSchedule> paySchedule(String scheduleId) async {
     final response = await _client.post('/preorders/schedules/$scheduleId/pay');
     return PreorderSchedule.fromJson(response.data as Map<String, dynamic>);

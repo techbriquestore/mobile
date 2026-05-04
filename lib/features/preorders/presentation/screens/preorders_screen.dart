@@ -7,6 +7,7 @@ import '../../domain/models/preorder.dart';
 
 Color _statusColor(String s) {
   switch (s) {
+    case 'PENDING_DEPOSIT': return Colors.amber;
     case 'ACTIVE': return AppColors.info;
     case 'COMPLETED': return AppColors.success;
     case 'CONVERTED': return Colors.purple;
@@ -18,6 +19,7 @@ Color _statusColor(String s) {
 
 String _statusLabel(String s) {
   switch (s) {
+    case 'PENDING_DEPOSIT': return 'Acompte requis';
     case 'ACTIVE': return 'En cours';
     case 'COMPLETED': return 'Complétée';
     case 'CONVERTED': return 'Convertie';
@@ -29,6 +31,7 @@ String _statusLabel(String s) {
 
 IconData _statusIcon(String s) {
   switch (s) {
+    case 'PENDING_DEPOSIT': return Icons.account_balance_wallet;
     case 'ACTIVE': return Icons.hourglass_top;
     case 'COMPLETED': return Icons.check_circle;
     case 'CONVERTED': return Icons.swap_horiz_rounded;
@@ -187,7 +190,7 @@ class _PreorderCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text('${preorder.totalQuantity} unités — Prix bloqué : ${_fmt(preorder.lockedPrice.toDouble())} F/u', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+            Text('${preorder.items.length} produit(s) — Acompte : ${_fmt(preorder.depositAmount.toDouble())} F', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
             const SizedBox(height: 14),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
