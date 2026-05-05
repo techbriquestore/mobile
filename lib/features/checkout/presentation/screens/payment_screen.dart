@@ -151,7 +151,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           orderId = order.id;
           _realOrderNumber = order.orderNumber;
         } else {
-          // Précommande → créer + première échéance auto-payée par le backend
+          // Précommande → créer puis confirmer l'acompte (15%)
           final preorderService = PreorderService(ServiceLocator.apiClient);
           final paymentDurationMonths = extra['paymentDurationMonths'] as int? ?? 3;
           final preorder = await preorderService.createPreorder(
@@ -163,7 +163,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           orderId = preorder.id;
           _realOrderNumber = 'PC-${preorder.id.substring(0, 8).toUpperCase()}';
 
-          // Pour les précommandes, PAS de simulatePayment (la 1ère échéance est déjà payée)
+          // Confirmer automatiquement le paiement de l'acompte (15%)
+          await preorderService.confirmDeposit(preorder.id);
+
           _realOrderId = orderId;
           _isPreorderCreation = true;
           if (widget.orderId == 'NEW') ref.read(cartProvider.notifier).clear();
