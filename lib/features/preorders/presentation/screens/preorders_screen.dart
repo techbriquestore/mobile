@@ -160,8 +160,13 @@ class _PreorderCard extends StatelessWidget {
     final schedules = preorder.schedules;
     final paidCount = schedules.where((s) => s.status == 'PAID').length;
     final totalCount = schedules.length;
-    final paidAmount = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
-    final progress = preorder.totalAmount > 0 ? paidAmount / preorder.totalAmount : 0.0;
+    final paidSchedulesAmount = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
+    
+    // Inclure l'acompte payé dans le montant total
+    final depositPaid = preorder.isDepositPaid ? preorder.depositAmount : 0;
+    final totalPaid = depositPaid + paidSchedulesAmount;
+    
+    final progress = preorder.totalAmount > 0 ? totalPaid / preorder.totalAmount : 0.0;
     final color = _statusColor(preorder.status);
     final label = _statusLabel(preorder.status);
     final icon = _statusIcon(preorder.status);
@@ -207,7 +212,7 @@ class _PreorderCard extends StatelessWidget {
               children: [
                 Text('$paidCount/$totalCount échéances', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                 RichText(text: TextSpan(children: [
-                  TextSpan(text: _fmt(paidAmount.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                  TextSpan(text: _fmt(totalPaid.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
                   TextSpan(text: ' / ${_fmt(preorder.totalAmount.toDouble())} F', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                 ])),
               ],
