@@ -28,11 +28,35 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _quantity = 100;
   int _currentImageIndex = 0;
   final _pageController = PageController();
+  final _quantityController = TextEditingController(text: '100');
+  final _quantityFocusNode = FocusNode();
+  static const int _minQuantity = 100;
 
   @override
   void dispose() {
     _pageController.dispose();
+    _quantityController.dispose();
+    _quantityFocusNode.dispose();
     super.dispose();
+  }
+
+  void _updateQuantity(String value) {
+    final parsed = int.tryParse(value.replaceAll(' ', ''));
+    if (parsed != null && parsed >= _minQuantity) {
+      setState(() => _quantity = parsed);
+    }
+  }
+
+  void _validateQuantity() {
+    final parsed = int.tryParse(_quantityController.text.replaceAll(' ', ''));
+    if (parsed == null || parsed < _minQuantity) {
+      setState(() {
+        _quantity = _minQuantity;
+        _quantityController.text = '$_minQuantity';
+      });
+    } else {
+      setState(() => _quantity = parsed);
+    }
   }
 
   @override
@@ -409,7 +433,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
           // ─── Bottom bar: Quantity + Add to cart ──────────────────────
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -420,62 +444,69 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Quantity selector
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7F7F7),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                // Minimum quantity hint
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (_quantity > 1) setState(() => _quantity -= 10);
-                        },
-                        child: Container(
-                          width: 40,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              bottomLeft: Radius.circular(12),
-                            ),
-                          ),
-                          child: const Icon(Icons.remove, size: 18),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 50,
-                        child: Center(
-                          child: Text(
-                            '$_quantity',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => _quantity += 10),
-                        child: Container(
-                          width: 40,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topRight: Radius.circular(12),
-                              bottomRight: Radius.circular(12),
-                            ),
-                          ),
-                          child: const Icon(Icons.add, size: 18),
-                        ),
+                      Icon(Icons.info_outline, size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Quantité minimum : $_minQuantity briques',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                Row(
+                  children: [
+                    // Quantity input field
+                    Container(
+                      width: 130,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F7F7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 10),
+                          const Icon(Icons.inventory_2_outlined, size: 16, color: AppColors.primary),
+                          Expanded(
+                            child: TextField(
+                              controller: _quantityController,
+                              focusNode: _quantityFocusNode,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                                isDense: true,
+                                hintText: '100',
+                                hintStyle: TextStyle(color: Colors.grey),
+                              ),
+                              onChanged: _updateQuantity,
+                              onEditingComplete: _validateQuantity,
+                              onTapOutside: (_) {
+                                _validateQuantity();
+                                _quantityFocusNode.unfocus();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                 // Add to cart button
                 Expanded(
                   child: SizedBox(
@@ -505,6 +536,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                     ),
                   ),
+                ),
+                  ],
                 ),
               ],
             ),
