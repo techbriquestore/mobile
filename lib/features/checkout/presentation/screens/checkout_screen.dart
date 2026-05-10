@@ -36,9 +36,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   static const double _deliveryFee = 15000;
   double _getTotal(double subtotal) => subtotal + _deliveryFee;
   int get _totalPayments => _months * 2; // 2 paiements par mois
-  double _getFirstPayment(double total) => (total * 0.15).ceilToDouble();
+  // L'acompte (15%) est calculé sur le total (produits + livraison) comme le backend
+  double _getFirstPayment(double total) => (total * 0.15).roundToDouble();
+  // Les échéances couvrent le reste (total - acompte)
   double _getInstallmentAmount(double total, double firstPayment) =>
-      ((total - firstPayment) / (_totalPayments - 1)).ceilToDouble();
+      ((total - firstPayment) / _totalPayments).floorToDouble();
   bool get _hasFees => _months > 6;
   double _getFees(double total) => _hasFees ? (total * 0.02) : 0;
   double _getGrandTotal(double total) => total + _getFees(total);
@@ -90,6 +92,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final total = _getTotal(subtotal);
+    // L'acompte (15%) est calculé sur le total (produits + livraison)
     final firstPayment = _getFirstPayment(total);
     final installmentAmount = _getInstallmentAmount(total, firstPayment);
     final fees = _getFees(total);
