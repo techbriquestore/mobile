@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/providers/auth_providers.dart';
 import '../../../cart/data/providers/cart_provider.dart';
-import '../../../profile/data/providers/address_providers.dart';
-import '../../../profile/presentation/screens/add_address_screen.dart';
+import '../../../profile/data/providers/project_providers.dart';
+import '../../../profile/presentation/screens/add_project_screen.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -17,7 +17,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 enum PaymentType { instant, installment }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  String? _selectedAddressId;
+  String? _selectedProjectId;
 
   // ─── Type de paiement ───
   PaymentType _paymentType = PaymentType.instant;
@@ -50,7 +50,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(addressProvider.notifier).loadAddresses();
+      ref.read(projectProvider.notifier).loadProjects();
     });
   }
 
@@ -123,9 +123,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 children: [
                   const SizedBox(height: 12),
 
-                  // ═══════════════ STEP 1 : Adresse de livraison ═══════════════
-                  _SectionHeader(number: '1', title: 'Adresse de livraison'),
-                  _buildAddressSection(),
+                  // ═══════════════ STEP 1 : Projet de livraison ═══════════════
+                  _SectionHeader(number: '1', title: 'Projet de livraison'),
+                  _buildProjectSection(),
 
                   const SizedBox(height: 8),
 
@@ -362,7 +362,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 SizedBox(
                   width: double.infinity, height: 52,
                   child: ElevatedButton(
-                    onPressed: (_acceptedCGV && _selectedAddressId != null) ? () => context.push('/payment', extra: {
+                    onPressed: (_acceptedCGV && _selectedProjectId != null) ? () => context.push('/payment', extra: {
                       'paymentType': _paymentType == PaymentType.instant ? 'instant' : 'installment',
                       'amount': _paymentType == PaymentType.instant ? total : firstPayment,
                       'orderId': 'NEW', // Will be created by backend
@@ -373,7 +373,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       },
                       'cartItems': ref.read(cartProvider.notifier).toOrderItems(),
                       'deliveryMode': 0, // Standard uniquement
-                      'addressId': _selectedAddressId,
+                      'addressId': _selectedProjectId,
                       if (_hasSecondaryContact && _secondaryNameController.text.trim().isNotEmpty) ...{
                         'secondaryContactName': _secondaryNameController.text.trim(),
                         'secondaryContactPhone': _secondaryPhoneController.text.replaceAll(' ', ''),
@@ -400,20 +400,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  Widget _buildAddressSection() {
-    final addrState = ref.watch(addressProvider);
-    final addresses = addrState.addresses;
+  Widget _buildProjectSection() {
+    final projState = ref.watch(projectProvider);
+    final projects = projState.projects;
 
     // Loading
-    if (addrState.status == AddressStatus.loading && addresses.isEmpty) {
+    if (projState.status == ProjectStatus.loading && projects.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // No addresses
-    if (addresses.isEmpty) {
+    // No projects
+    if (projects.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Container(
@@ -425,15 +425,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ),
           child: Column(
             children: [
-              Icon(Icons.location_off_outlined, size: 40, color: Colors.orange.shade300),
+              Icon(Icons.foundation, size: 40, color: Colors.orange.shade300),
               const SizedBox(height: 10),
               Text(
-                'Aucune adresse enregistrée',
+                'Aucun projet enregistré',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
               ),
               const SizedBox(height: 6),
               Text(
-                'Ajoutez une adresse de livraison dans le Grand Abidjan',
+                'Créez un projet de construction pour associer vos commandes',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
               ),
@@ -444,14 +444,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   onPressed: () async {
                     await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+                      MaterialPageRoute(builder: (_) => const AddProjectScreen()),
                     );
                     if (mounted) {
-                      ref.read(addressProvider.notifier).loadAddresses();
+                      ref.read(projectProvider.notifier).loadProjects();
                     }
                   },
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Ajouter une adresse'),
+                  label: const Text('Créer un projet'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -466,27 +466,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
-    // Auto-select default address
-    if (_selectedAddressId == null) {
-      final def = addrState.defaultAddress;
+    // Auto-select default project
+    if (_selectedProjectId == null) {
+      final def = projState.defaultProject;
       if (def != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _selectedAddressId = def.id);
+          if (mounted) setState(() => _selectedProjectId = def.id);
         });
       }
     }
 
     return Column(
       children: [
-        ...addresses.map((addr) {
-          final selected = _selectedAddressId == addr.id;
+        ...projects.map((proj) {
+          final selected = _selectedProjectId == proj.id;
           return _SelectableCard(
             selected: selected,
-            onTap: () => setState(() => _selectedAddressId = addr.id),
-            icon: _iconForLabel(addr.label),
-            title: addr.label,
-            subtitle: addr.displayAddress,
-            trailing: addr.isDefault && !selected
+            onTap: () => setState(() => _selectedProjectId = proj.id),
+            icon: Icons.foundation,
+            title: proj.name,
+            subtitle: proj.displayAddress,
+            trailing: proj.isDefault && !selected
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -498,17 +498,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 : null,
           );
         }),
-        // Add new address button
+        // Add new project button
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: GestureDetector(
             onTap: () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+                MaterialPageRoute(builder: (_) => const AddProjectScreen()),
               );
               if (mounted) {
-                ref.read(addressProvider.notifier).loadAddresses();
+                ref.read(projectProvider.notifier).loadProjects();
               }
             },
             child: Container(
@@ -523,7 +523,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 children: [
                   Icon(Icons.add_circle_outline, color: AppColors.primary, size: 18),
                   const SizedBox(width: 8),
-                  const Text('Nouvelle adresse', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  const Text('Nouveau projet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
                 ],
               ),
             ),

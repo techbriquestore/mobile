@@ -56,7 +56,8 @@
 
   // Profile
   static const String profile = '/profile';
-  static const String addresses = '/users/addresses';
+  static const String addresses = '/users/addresses'; // legacy
+  static const String projects = '/users/projects';
   static const String preferences = '/profile/preferences';
 
   // Simulator

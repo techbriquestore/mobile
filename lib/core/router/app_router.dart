@@ -19,7 +19,8 @@ import '../../features/preorders/presentation/screens/preorder_detail_screen.dar
 import '../../features/preorders/presentation/screens/create_preorder_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/edit_profile_screen.dart';
-import '../../features/profile/presentation/screens/addresses_screen.dart';
+import '../../features/profile/presentation/screens/projects_screen.dart';
+import '../../features/profile/presentation/screens/project_detail_screen.dart';
 import '../../features/profile/presentation/screens/payment_history_screen.dart';
 import '../../features/simulator/presentation/screens/simulator_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
@@ -127,7 +128,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profile', name: 'profile', builder: (_, __) => const ProfileScreen(),
             routes: [
               GoRoute(path: 'edit', name: 'editProfile', builder: (_, __) => const EditProfileScreen()),
-              GoRoute(path: 'addresses', name: 'addresses', builder: (_, __) => const AddressesScreen()),
+              GoRoute(path: 'addresses', name: 'addresses', builder: (_, __) => const ProjectsScreen()),
               GoRoute(path: 'payments', name: 'paymentHistory', builder: (_, __) => const PaymentHistoryScreen()),
               GoRoute(path: 'settings', name: 'settings', builder: (_, __) => const SettingsScreen()),
               GoRoute(path: 'change-password', name: 'changePassword', builder: (_, __) => const ChangePasswordScreen()),
@@ -166,6 +167,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/faq', name: 'faq', builder: (_, __) => const FaqScreen()),
       GoRoute(path: '/legal', name: 'legal', builder: (_, __) => const LegalScreen()),
       GoRoute(path: '/claim/:orderId', name: 'claim', builder: (_, state) => ClaimScreen(orderId: state.pathParameters['orderId']!)),
+      GoRoute(path: '/projects', name: 'projects', builder: (_, __) => const ProjectsScreen()),
+      GoRoute(path: '/projects/:projectId', name: 'projectDetail', builder: (_, state) => ProjectDetailScreen(projectId: state.pathParameters['projectId']!)),
     ],
   );
 });

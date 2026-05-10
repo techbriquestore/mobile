@@ -114,9 +114,9 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.go('/orders'),
                 ),
                 _ProfileMenuItem(
-                  icon: Icons.location_on_outlined,
-                  label: 'Mes adresses',
-                  onTap: () => context.push('/profile/addresses'),
+                  icon: Icons.foundation,
+                  label: 'Mes projets',
+                  onTap: () => context.push('/projects'),
                 ),
                 _ProfileMenuItem(
                   icon: Icons.payment_outlined,

@@ -195,7 +195,7 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(width: 10),
                   _QuickAccessCard(icon: Icons.receipt_long_outlined, label: 'Commandes', color: const Color(0xFF9C27B0), onTap: () => context.go('/orders')),
                   const SizedBox(width: 10),
-                  _QuickAccessCard(icon: Icons.local_offer_outlined, label: 'Promotions', color: AppColors.primary, onTap: () => context.push('/promotions')),
+                  _QuickAccessCard(icon: Icons.foundation, label: 'Projets', color: AppColors.primary, onTap: () => context.push('/projects')),
                   const SizedBox(width: 10),
                   _QuickAccessCard(icon: Icons.support_agent, label: 'Support', color: AppColors.info, onTap: () => context.push('/support')),
                 ],
