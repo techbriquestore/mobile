@@ -111,6 +111,7 @@ class PreorderSchedule {
   final DateTime dueDate;
   final int amount;
   final String status;
+  final bool isDeposit;
   final DateTime? paidAt;
   final bool reminderSent;
   final DateTime createdAt;
@@ -122,6 +123,7 @@ class PreorderSchedule {
     required this.dueDate,
     required this.amount,
     required this.status,
+    this.isDeposit = false,
     this.paidAt,
     required this.reminderSent,
     required this.createdAt,
@@ -135,6 +137,7 @@ class PreorderSchedule {
       dueDate: DateTime.parse(json['dueDate'] as String),
       amount: json['amount'] as int,
       status: json['status'] as String,
+      isDeposit: (json['isDeposit'] as bool?) ?? false,
       paidAt: json['paidAt'] != null
           ? DateTime.parse(json['paidAt'] as String)
           : null,

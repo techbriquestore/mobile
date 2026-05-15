@@ -48,8 +48,32 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
+  // ─── Agrégats calculés côté client pour séparer commandes / pré-commandes ───
+
+  _OrdersAggregate _computeOrdersAggregate(ProjectModel project) {
+    final orders = project.orders ?? [];
+    int totalPaid = 0;
+    int totalAmount = 0;
+    int totalBricks = 0;
+
+    for (final o in orders) {
+      totalPaid += o.totalPaid;
+      totalAmount += (o.totalAmount ?? 0);
+      // bricksCount non disponible côté backend pour l'instant
+      totalBricks += 0;
+    }
+
+    return _OrdersAggregate(
+      totalPaid: totalPaid,
+      totalAmount: totalAmount,
+      totalRemaining: (totalAmount - totalPaid).clamp(0, 1 << 31),
+      totalBricks: totalBricks,
+      ordersCount: orders.length,
+    );
+  }
+
   Widget _buildContent(BuildContext context, WidgetRef ref, ProjectModel project) {
-    final kpis = project.kpis;
+    final ordersAgg = _computeOrdersAggregate(project);
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(projectDetailProvider(projectId)),
@@ -63,12 +87,13 @@ class ProjectDetailScreen extends ConsumerWidget {
             _buildHeader(project),
             const SizedBox(height: 16),
 
-            // ─── KPIs ───
-            if (kpis != null) ...[
-              _buildKpiGrid(kpis, project.budget),
-              const SizedBox(height: 16),
-              if (project.budget != null && kpis.budgetProgress != null)
-                _buildBudgetProgress(kpis, project.budget!),
+            // ─── KPIs COMMANDES uniquement ───
+            _buildOrdersKpiSection(ordersAgg),
+            const SizedBox(height: 16),
+
+            // ─── Budget (basé sur les commandes uniquement) ───
+            if (project.budget != null && project.budget! > 0) ...[
+              _buildBudgetProgress(ordersAgg.totalPaid, project.budget!),
               const SizedBox(height: 16),
             ],
 
@@ -76,7 +101,7 @@ class ProjectDetailScreen extends ConsumerWidget {
             _buildAddressCard(project),
             const SizedBox(height: 16),
 
-            // ─── Commandes liées ───
+            // ─── Section Commandes ───
             if (project.orders != null && project.orders!.isNotEmpty) ...[
               _buildSectionTitle('Commandes', Icons.receipt_long_outlined, project.orders!.length),
               const SizedBox(height: 8),
@@ -84,7 +109,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               const SizedBox(height: 16),
             ],
 
-            // ─── Pré-commandes liées ───
+            // ─── Section Pré-commandes ───
             if (project.preorders != null && project.preorders!.isNotEmpty) ...[
               _buildSectionTitle('Pré-commandes', Icons.schedule, project.preorders!.length),
               const SizedBox(height: 8),
@@ -156,18 +181,28 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildKpiGrid(ProjectKpis kpis, int? budget) {
-    return Column(children: [
+  // ─── KPIs Commandes ───
+  Widget _buildOrdersKpiSection(_OrdersAggregate agg) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Row(children: [
+          const Icon(Icons.receipt_long_outlined, size: 16, color: AppColors.textPrimary),
+          const SizedBox(width: 6),
+          const Text('Synthèse des commandes',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        ]),
+      ),
       Row(children: [
-        Expanded(child: _kpiCard('Total dépensé', '${_fmt.format(kpis.totalSpent)} F', Icons.payments_outlined, AppColors.primary)),
+        Expanded(child: _kpiCard('Total dépensé', '${_fmt.format(agg.totalPaid)} F', Icons.payments_outlined, AppColors.primary)),
         const SizedBox(width: 10),
-        Expanded(child: _kpiCard('Reste à payer', '${_fmt.format(kpis.totalRemaining)} F', Icons.account_balance_wallet_outlined, Colors.orange)),
+        Expanded(child: _kpiCard('Reste à payer', '${_fmt.format(agg.totalRemaining)} F', Icons.account_balance_wallet_outlined, Colors.orange)),
       ]),
       const SizedBox(height: 10),
       Row(children: [
-        Expanded(child: _kpiCard('Briques', _fmt.format(kpis.totalBricks), Icons.view_in_ar, const Color(0xFF9C27B0))),
+        Expanded(child: _kpiCard('Briques', _fmt.format(agg.totalBricks), Icons.view_in_ar, const Color(0xFF9C27B0))),
         const SizedBox(width: 10),
-        Expanded(child: _kpiCard('Commandes', '${kpis.totalOrders}', Icons.receipt_long_outlined, AppColors.info)),
+        Expanded(child: _kpiCard('Commandes', '${agg.ordersCount}', Icons.receipt_long_outlined, AppColors.info)),
       ]),
     ]);
   }
@@ -190,8 +225,9 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBudgetProgress(ProjectKpis kpis, int budget) {
-    final progress = (kpis.budgetProgress ?? 0).clamp(0, 100);
+  // ─── Budget basé uniquement sur les commandes ───
+  Widget _buildBudgetProgress(int spent, int budget) {
+    final progress = budget == 0 ? 0 : ((spent / budget) * 100).round().clamp(0, 100);
     final color = progress > 90 ? AppColors.error : progress > 70 ? Colors.orange : AppColors.success;
 
     return Container(
@@ -201,7 +237,8 @@ class ProjectDetailScreen extends ConsumerWidget {
         Row(children: [
           const Icon(Icons.pie_chart_outline, size: 18, color: AppColors.primary),
           const SizedBox(width: 8),
-          const Text('Budget', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          const Text('Budget (commandes)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           const Spacer(),
           Text('$progress%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
         ]),
@@ -217,7 +254,7 @@ class ProjectDetailScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('${_fmt.format(kpis.totalSpent)} F dépensés', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          Text('${_fmt.format(spent)} F dépensés', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           Text('Budget: ${_fmt.format(budget)} F', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
         ]),
       ]),
@@ -290,11 +327,6 @@ class ProjectDetailScreen extends ConsumerWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               ]),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-              child: Text(order.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
-            ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
           ]),
@@ -327,11 +359,6 @@ class ProjectDetailScreen extends ConsumerWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               ]),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-              child: Text(preorder.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
-            ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
           ]),
@@ -339,4 +366,22 @@ class ProjectDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+// ─── Classes d'agrégation internes (calculs côté client) ───
+
+class _OrdersAggregate {
+  final int totalPaid;
+  final int totalAmount;
+  final int totalRemaining;
+  final int totalBricks;
+  final int ordersCount;
+
+  _OrdersAggregate({
+    required this.totalPaid,
+    required this.totalAmount,
+    required this.totalRemaining,
+    required this.totalBricks,
+    required this.ordersCount,
+  });
 }

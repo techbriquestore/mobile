@@ -128,24 +128,6 @@ class _OrdersTab extends ConsumerWidget {
 
     return Column(
       children: [
-        // ── Bandeau explicatif ──
-        Container(
-          color: const Color(0xFFFFF8F0),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              const Icon(Icons.flash_on, color: AppColors.primary, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Paiement instantané · Suivi de fabrication inclus',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                ),
-              ),
-            ],
-          ),
-        ),
-
         // ── Filtres statuts ──
         Container(
           color: Colors.white,
@@ -224,24 +206,6 @@ class _PreordersTabState extends ConsumerState<_PreordersTab> {
 
     return Column(
       children: [
-        // ── Bandeau explicatif ──
-        Container(
-          color: const Color(0xFFF0F4FF),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              const Icon(Icons.calendar_month, color: AppColors.info, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Paiement échelonné · 2 versements/mois · Prix bloqué',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                ),
-              ),
-            ],
-          ),
-        ),
-
         // ── Filtres statuts ──
         Container(
           color: Colors.white,

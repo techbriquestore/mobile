@@ -98,9 +98,13 @@ class _PreorderDetailBody extends ConsumerWidget {
     final paidSchedulesCount = schedules.where((s) => s.status == 'PAID').length;
     final paidSchedulesAmount = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
     
-    // Calcul du montant total payé (acompte + échéances)
-    final depositPaid = preorder.isDepositPaid ? preorder.depositAmount : 0;
-    final totalPaid = depositPaid + paidSchedulesAmount;
+    // Nombre de versements (échéances sans l'acompte)
+    final versementsCount = schedules.where((s) => !s.isDeposit).length;
+    final paidVersementsCount = schedules.where((s) => !s.isDeposit && s.status == 'PAID').length;
+    final isDepositPaid = schedules.any((s) => s.isDeposit && s.status == 'PAID');
+    
+    // Calcul du montant total payé (toutes les échéances payées)
+    final totalPaid = paidSchedulesAmount;
     
     // Progression basée sur le montant total payé vs montant total
     final progress = preorder.totalAmount > 0 ? totalPaid / preorder.totalAmount : 0.0;
@@ -199,8 +203,8 @@ class _PreorderDetailBody extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  preorder.isDepositPaid 
-                    ? 'Acompte + $paidSchedulesCount/${schedules.length} échéances'
+                  isDepositPaid 
+                    ? 'Acompte + $paidVersementsCount/$versementsCount versements'
                     : '$paidSchedulesCount/${schedules.length} échéances payées',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                 ),
@@ -420,28 +424,20 @@ class _PreorderDetailBody extends ConsumerWidget {
             title: 'Paiements',
             child: Column(
               children: [
-                // Acompte (toujours affiché en premier)
-                _DepositRow(
-                  depositAmount: preorder.depositAmount,
-                  depositPercentage: preorder.depositPercentage,
-                  isPaid: preorder.isDepositPaid,
-                  paidAt: preorder.depositPaidAt,
-                  fmt: fmt,
-                ),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                // Échéances
+                // Toutes les échéances (acompte = 1ère échéance avec isDeposit)
                 ...List.generate(schedules.length, (i) {
                   final s = schedules[i];
                   final isNext = s == nextSchedule;
+                  // Numéro de versement : acompte = pas de numéro, sinon numéro séquentiel
+                  final versementIndex = s.isDeposit ? 0 : schedules.where((x) => !x.isDeposit).toList().indexOf(s) + 1;
                   return _ScheduleRow(
-                    index: i + 1,
+                    index: versementIndex,
                     schedule: s,
                     isNext: isNext,
                     fmt: fmt,
                     preorderId: preorder.id,
                     canPay: canPaySchedules,
+                    depositPercentage: preorder.depositPercentage,
                   );
                 }),
               ],
@@ -496,6 +492,7 @@ class _ScheduleRow extends ConsumerWidget {
   final DateFormat fmt;
   final String preorderId;
   final bool canPay;
+  final int depositPercentage;
 
   const _ScheduleRow({
     required this.index,
@@ -504,6 +501,7 @@ class _ScheduleRow extends ConsumerWidget {
     required this.fmt,
     required this.preorderId,
     this.canPay = true,
+    this.depositPercentage = 15,
   });
 
   Color get _color {
@@ -560,7 +558,10 @@ class _ScheduleRow extends ConsumerWidget {
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text('Versement $index', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            Text(
+              schedule.isDeposit ? 'Acompte ($depositPercentage%)' : 'Versement $index',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -572,7 +573,9 @@ class _ScheduleRow extends ConsumerWidget {
           Text(
             isPaid && schedule.paidAt != null
                 ? 'Payé le ${fmt.format(schedule.paidAt!)}'
-                : 'Échéance : ${fmt.format(schedule.dueDate)}',
+                : schedule.isDeposit 
+                    ? 'Requis pour activer la pré-commande'
+                    : 'Échéance : ${fmt.format(schedule.dueDate)}',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ])),
@@ -614,79 +617,6 @@ class _ScheduleRow extends ConsumerWidget {
   }
 }
 
-class _DepositRow extends StatelessWidget {
-  final int depositAmount;
-  final int depositPercentage;
-  final bool isPaid;
-  final DateTime? paidAt;
-  final DateFormat fmt;
-
-  const _DepositRow({
-    required this.depositAmount,
-    required this.depositPercentage,
-    required this.isPaid,
-    this.paidAt,
-    required this.fmt,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isPaid ? AppColors.success : Colors.amber.shade700;
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: isPaid ? AppColors.success.withValues(alpha: 0.05) : Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 34, height: 34,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            isPaid ? Icons.check_rounded : Icons.account_balance_wallet_rounded,
-            size: 16,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text('Acompte ($depositPercentage%)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-              child: Text(
-                isPaid ? 'Payé' : 'En attente',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 2),
-          Text(
-            isPaid && paidAt != null
-                ? 'Payé le ${fmt.format(paidAt!)}'
-                : 'Requis pour activer la pré-commande',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-          ),
-        ])),
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          if (isPaid) Icon(Icons.check_circle_rounded, size: 16, color: AppColors.success),
-          if (isPaid) const SizedBox(width: 4),
-          Text(
-            '${_fmt(depositAmount.toDouble())} F',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
-          ),
-        ]),
-      ]),
-    );
-  }
-}
 
 String _fmt(double v) {
   final s = v.toStringAsFixed(0);

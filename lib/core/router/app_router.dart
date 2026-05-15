@@ -120,11 +120,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             final tab = state.uri.queryParameters['tab'];
             final initialTab = (tab == 'preorders' || tab == '1') ? 1 : 0;
             return OrdersScreen(initialTab: initialTab);
-          },
-            routes: [
-              GoRoute(path: ':orderId', name: 'orderDetail', builder: (_, state) => OrderDetailScreen(orderId: state.pathParameters['orderId']!)),
-            ],
-          ),
+          }),
           GoRoute(path: '/profile', name: 'profile', builder: (_, __) => const ProfileScreen(),
             routes: [
               GoRoute(path: 'edit', name: 'editProfile', builder: (_, __) => const EditProfileScreen()),
@@ -138,6 +134,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // === Hors shell ===
+      GoRoute(path: '/orders/:orderId', name: 'orderDetail', builder: (_, state) => OrderDetailScreen(orderId: state.pathParameters['orderId']!)),
       GoRoute(path: '/search', name: 'search', builder: (_, __) => const SearchScreen()),
       GoRoute(path: '/favorites', name: 'favorites', builder: (_, __) => const FavoritesScreen()),
       GoRoute(path: '/promotions', name: 'promotions', builder: (_, __) => const PromotionsScreen()),
