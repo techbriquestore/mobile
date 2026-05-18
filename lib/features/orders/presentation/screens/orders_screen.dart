@@ -518,7 +518,8 @@ class _PreorderCard extends StatelessWidget {
     final paidAmount = schedules
         .where((s) => s.status == 'PAID')
         .fold<int>(0, (sum, s) => sum + s.amount);
-    final progress = totalCount > 0 ? paidCount / totalCount : 0.0;
+    // Progression basée sur le montant payé, pas le nombre d'échéances
+    final progress = preorder.totalAmount > 0 ? paidAmount / preorder.totalAmount : 0.0;
     final isCompleted = preorder.status == 'COMPLETED';
     final isCancelled = preorder.status == 'CANCELLED';
 
