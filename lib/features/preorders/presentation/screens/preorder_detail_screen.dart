@@ -593,7 +593,8 @@ class _ScheduleRow extends ConsumerWidget {
             Icon(Icons.check_circle_rounded, size: 16, color: AppColors.success),
             const SizedBox(width: 4),
             Text(
-              '${_fmt(schedule.amount.toDouble())} F',
+              // Afficher le montant original si paiement partiel, sinon le montant normal
+              '${_fmt((schedule.originalAmount ?? schedule.amount).toDouble())} F',
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success),
             ),
           ])
