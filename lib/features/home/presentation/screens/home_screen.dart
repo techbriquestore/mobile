@@ -138,7 +138,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      '-15% sur les briques\nréfractaires',
+                      '-15% sur les briques\nPleines',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,

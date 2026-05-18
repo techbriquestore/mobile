@@ -25,12 +25,12 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
-  int _quantity = 100;
+  int _quantity = 1000;
   int _currentImageIndex = 0;
   final _pageController = PageController();
-  final _quantityController = TextEditingController(text: '100');
+  final _quantityController = TextEditingController(text: '1000');
   final _quantityFocusNode = FocusNode();
-  static const int _minQuantity = 100;
+  static const int _minQuantity = 1000;
 
   @override
   void dispose() {

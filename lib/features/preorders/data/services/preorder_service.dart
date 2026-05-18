@@ -61,9 +61,13 @@ class PreorderService {
     return Preorder.fromJson(response.data as Map<String, dynamic>);
   }
 
-  /// Payer une échéance (simulé)
-  Future<PreorderSchedule> paySchedule(String scheduleId) async {
-    final response = await _client.post('/preorders/schedules/$scheduleId/pay');
-    return PreorderSchedule.fromJson(response.data as Map<String, dynamic>);
+  /// Payer une échéance avec possibilité de surplus
+  /// Le surplus est automatiquement réparti sur les échéances suivantes
+  Future<Map<String, dynamic>> paySchedule(String scheduleId, {int? amount}) async {
+    final response = await _client.post(
+      '/preorders/schedules/$scheduleId/pay',
+      data: amount != null ? {'amount': amount} : {},
+    );
+    return response.data as Map<String, dynamic>;
   }
 }

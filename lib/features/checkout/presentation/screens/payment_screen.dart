@@ -41,6 +41,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   int _selectedMethod = 0;
   int _selectedProvider = 0;
   final _phoneCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
   bool _isProcessing = false;
   _PaymentStatus _status = _PaymentStatus.idle;
   String? _errorMessage;
@@ -49,6 +50,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isPreorderCreation = false; // Set à true si on vient de créer une précommande
   bool get _isSchedulePayment => widget.scheduleId != null && widget.preorderId != null;
   bool get _isPreorderContext => _isSchedulePayment || _isPreorderCreation;
+  double _customAmount = 0; // Montant personnalisé pour paiement avec surplus
+  int _paidSchedulesCount = 0; // Nombre d'échéances payées avec le surplus
 
   final _methods = [
     {'label': 'Mobile Money', 'icon': Icons.phone_android, 'color': const Color(0xFFFF6D00)},
@@ -63,8 +66,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _customAmount = widget.amount;
+    _amountCtrl.text = widget.amount.toStringAsFixed(0);
+  }
+
+  @override
   void dispose() {
     _phoneCtrl.dispose();
+    _amountCtrl.dispose();
     super.dispose();
   }
 
@@ -110,9 +121,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // ─── CAS 1 : Paiement d'une échéance pré-commande ───────────────────────
       if (_isSchedulePayment) {
         final preorderService = PreorderService(ServiceLocator.apiClient);
-        await preorderService.paySchedule(widget.scheduleId!);
+        // Envoyer le montant personnalisé (peut être supérieur au montant de l'échéance)
+        final paymentAmount = _customAmount.round();
+        final result = await preorderService.paySchedule(
+          widget.scheduleId!,
+          amount: paymentAmount > widget.amount.round() ? paymentAmount : null,
+        );
         _realOrderId = widget.preorderId;
         _realOrderNumber = 'PC-${widget.preorderId!.substring(0, 8).toUpperCase()}';
+        // Récupérer le nombre d'échéances payées si surplus
+        if (result['schedulesPaid'] == 'multiple') {
+          _paidSchedulesCount = 2; // Au moins 2 échéances payées
+        }
         ref.invalidate(preorderByIdProvider(widget.preorderId!));
         ref.invalidate(preordersProvider);
         if (!mounted) return;
@@ -269,6 +289,99 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
+                  // ─── Montant personnalisé (pour paiement d'échéance avec surplus) ───
+                  if (_isSchedulePayment) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.add_card, size: 20, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Payer plus ?',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Vous pouvez payer plus que le montant de cette échéance. Le surplus sera automatiquement déduit des prochaines échéances.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _amountCtrl,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (value) {
+                                    final parsed = double.tryParse(value.replaceAll(' ', ''));
+                                    if (parsed != null && parsed >= widget.amount) {
+                                      setState(() => _customAmount = parsed);
+                                    } else if (parsed != null && parsed < widget.amount) {
+                                      setState(() => _customAmount = widget.amount);
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText: 'Montant à payer',
+                                    suffixText: 'FCFA',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_customAmount > widget.amount) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle, size: 18, color: AppColors.success),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Surplus de ${_fmt(_customAmount - widget.amount)} F sera déduit des prochaines échéances',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'Minimum : ${_fmt(widget.amount)} FCFA',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // ─── Payment method selection ───
                   Text('MODE DE PAIEMENT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5)),
@@ -448,7 +561,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   children: [
                     Icon(_selectedMethod == 0 ? Icons.phone_android : Icons.credit_card, size: 22),
                     const SizedBox(width: 10),
-                    Text('Payer ${_fmt(widget.amount)} FCFA', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    Text(
+                      'Payer ${_fmt(_isSchedulePayment ? _customAmount : widget.amount)} FCFA',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
                   ],
                 ),
               ),
@@ -526,13 +642,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               const Text('Paiement réussi !', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
               const SizedBox(height: 12),
               Text(
-                '${_fmt(widget.amount)} FCFA',
+                '${_fmt(_isSchedulePayment ? _customAmount : widget.amount)} FCFA',
                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.success),
               ),
               const SizedBox(height: 8),
               Text(
                 _isSchedulePayment
-                    ? 'Versement n°${widget.scheduleIndex ?? '?'} payé\npour ${_realOrderNumber ?? ''}'
+                    ? _paidSchedulesCount > 1
+                        ? 'Plusieurs échéances payées !\nLe surplus a été appliqué automatiquement'
+                        : 'Versement n°${widget.scheduleIndex ?? '?'} payé\npour ${_realOrderNumber ?? ''}'
                     : widget.isFirstPayment
                         ? '1er versement pour ${_realOrderNumber ?? ''}\n${widget.totalInstallments - 1} échéances restantes'
                         : 'Paiement enregistré pour\n${_realOrderNumber ?? ''}',
