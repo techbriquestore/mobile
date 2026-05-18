@@ -96,15 +96,24 @@ class _PreorderDetailBody extends ConsumerWidget {
     final fmt = DateFormat('dd MMM yyyy', 'fr_FR');
     final schedules = preorder.schedules;
     final paidSchedulesCount = schedules.where((s) => s.status == 'PAID').length;
-    final paidSchedulesAmount = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
+    
+    // Montant des échéances entièrement payées
+    final paidSchedulesAmount = schedules
+        .where((s) => s.status == 'PAID')
+        .fold<int>(0, (sum, s) => sum + (s.originalAmount ?? s.amount));
+    
+    // Montant des paiements partiels sur les échéances non encore payées
+    final partialPaymentsAmount = schedules
+        .where((s) => s.status != 'PAID' && s.hasPartialPayment)
+        .fold<int>(0, (sum, s) => sum + s.partialPaidAmount);
     
     // Nombre de versements (échéances sans l'acompte)
     final versementsCount = schedules.where((s) => !s.isDeposit).length;
     final paidVersementsCount = schedules.where((s) => !s.isDeposit && s.status == 'PAID').length;
     final isDepositPaid = schedules.any((s) => s.isDeposit && s.status == 'PAID');
     
-    // Calcul du montant total payé (toutes les échéances payées)
-    final totalPaid = paidSchedulesAmount;
+    // Calcul du montant total payé (échéances payées + paiements partiels)
+    final totalPaid = paidSchedulesAmount + partialPaymentsAmount;
     
     // Progression basée sur le montant total payé vs montant total
     final progress = preorder.totalAmount > 0 ? totalPaid / preorder.totalAmount : 0.0;
@@ -589,28 +598,46 @@ class _ScheduleRow extends ConsumerWidget {
             ),
           ])
         else
-          ElevatedButton.icon(
-            onPressed: isPayable
-                ? () => context.push('/payment', extra: {
-                    'amount': schedule.amount.toDouble(),
-                    'orderId': '',
-                    'scheduleId': schedule.id,
-                    'preorderId': preorderId,
-                    'scheduleIndex': index,
-                  })
-                : null,
-            icon: const Icon(Icons.payment_rounded, size: 16),
-            label: Text('${_fmt(schedule.amount.toDouble())} F'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _color,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey.shade200,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              minimumSize: const Size(60, 36),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              elevation: 0,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Afficher le montant original barré si paiement partiel
+              if (schedule.hasPartialPayment) ...[
+                Text(
+                  '${_fmt(schedule.originalAmount!.toDouble())} F',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade400,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+                const SizedBox(height: 2),
+              ],
+              ElevatedButton.icon(
+                onPressed: isPayable
+                    ? () => context.push('/payment', extra: {
+                        'amount': schedule.amount.toDouble(),
+                        'orderId': '',
+                        'scheduleId': schedule.id,
+                        'preorderId': preorderId,
+                        'scheduleIndex': index,
+                      })
+                    : null,
+                icon: const Icon(Icons.payment_rounded, size: 16),
+                label: Text('${_fmt(schedule.amount.toDouble())} F'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _color,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade200,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(60, 36),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+              ),
+            ],
           ),
       ]),
     );

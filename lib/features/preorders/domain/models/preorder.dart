@@ -109,7 +109,8 @@ class PreorderSchedule {
   final String id;
   final String preorderId;
   final DateTime dueDate;
-  final int amount;
+  final int amount; // Montant restant à payer
+  final int? originalAmount; // Montant initial (si paiement partiel effectué)
   final String status;
   final bool isDeposit;
   final DateTime? paidAt;
@@ -122,6 +123,7 @@ class PreorderSchedule {
     required this.preorderId,
     required this.dueDate,
     required this.amount,
+    this.originalAmount,
     required this.status,
     this.isDeposit = false,
     this.paidAt,
@@ -130,12 +132,19 @@ class PreorderSchedule {
     required this.updatedAt,
   });
 
+  /// Indique si un paiement partiel a été effectué sur cette échéance
+  bool get hasPartialPayment => originalAmount != null && originalAmount! > amount;
+
+  /// Montant déjà payé partiellement
+  int get partialPaidAmount => hasPartialPayment ? originalAmount! - amount : 0;
+
   factory PreorderSchedule.fromJson(Map<String, dynamic> json) {
     return PreorderSchedule(
       id: json['id'] as String,
       preorderId: json['preorderId'] as String,
       dueDate: DateTime.parse(json['dueDate'] as String),
       amount: json['amount'] as int,
+      originalAmount: json['originalAmount'] as int?,
       status: json['status'] as String,
       isDeposit: (json['isDeposit'] as bool?) ?? false,
       paidAt: json['paidAt'] != null

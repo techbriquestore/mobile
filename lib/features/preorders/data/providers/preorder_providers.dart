@@ -93,9 +93,5 @@ final confirmDepositProvider =
 });
 
 // ─── Provider pour payer une échéance ───────────────────────────────────────────
-
-final payScheduleProvider =
-    FutureProvider.autoDispose.family<PreorderSchedule, String>((ref, scheduleId) async {
-  final service = ref.read(preorderServiceProvider);
-  return service.paySchedule(scheduleId);
-});
+// Note: paySchedule retourne maintenant Map<String, dynamic> avec les infos de paiement
+// Ce provider n'est plus utilisé directement - le paiement se fait via le service dans PaymentScreen
