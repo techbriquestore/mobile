@@ -160,11 +160,8 @@ class _PreorderCard extends StatelessWidget {
     final schedules = preorder.schedules;
     final paidCount = schedules.where((s) => s.status == 'PAID').length;
     final totalCount = schedules.length;
-    final paidSchedulesAmount = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
-    
-    // Inclure l'acompte payé dans le montant total
-    final depositPaid = preorder.isDepositPaid ? preorder.depositAmount : 0;
-    final totalPaid = depositPaid + paidSchedulesAmount;
+    // Le montant payé inclut déjà l'acompte (c'est maintenant une échéance avec isDeposit: true)
+    final totalPaid = schedules.where((s) => s.status == 'PAID').fold<int>(0, (sum, s) => sum + s.amount);
     
     final progress = preorder.totalAmount > 0 ? totalPaid / preorder.totalAmount : 0.0;
     final color = _statusColor(preorder.status);
