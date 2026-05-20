@@ -116,8 +116,15 @@ class _AuthInterceptor extends Interceptor {
       try {
         final refreshToken = _apiClient.refreshToken;
         if (refreshToken != null) {
-          final response = await Dio().post(
-            '${ApiConstants.baseUrl}${ApiConstants.refreshToken}',
+          // Utiliser l'instance Dio existante mais sans les intercepteurs pour éviter boucle
+          final refreshDio = Dio(BaseOptions(
+            baseUrl: _dio.options.baseUrl,
+            connectTimeout: const Duration(seconds: 30),
+            receiveTimeout: const Duration(seconds: 30),
+            headers: {'Content-Type': 'application/json'},
+          ));
+          final response = await refreshDio.post(
+            ApiConstants.refreshToken,
             data: {'refreshToken': refreshToken},
           );
           final newAccess = response.data['accessToken'] as String;
@@ -129,8 +136,10 @@ class _AuthInterceptor extends Interceptor {
           _isRefreshing = false;
           return handler.resolve(retryResponse);
         }
-      } catch (_) {
+      } catch (e) {
         _apiClient.clearTokens();
+        _isRefreshing = false;
+        // Laisser l'erreur originale passer
       }
       _isRefreshing = false;
     }
