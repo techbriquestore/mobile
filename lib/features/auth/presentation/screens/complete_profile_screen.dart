@@ -140,6 +140,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
       // Profil complété → aller au catalogue
       context.go('/');
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = _parseError(e.toString());
       });
