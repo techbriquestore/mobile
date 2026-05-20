@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/providers/core_providers.dart';
+import '../../../../core/services/secure_token_storage.dart';
 import '../services/auth_service.dart';
 
 // Keys for SharedPreferences
@@ -11,6 +12,14 @@ const _kAccessToken = 'access_token';
 const _kRefreshToken = 'refresh_token';
 const _kUserId = 'user_id';
 const _kProfileComplete = 'profile_complete';
+
+// Secure Token Storage Provider
+final secureTokenStorageProvider = Provider<SecureTokenStorage>((ref) {
+  final storage = SecureTokenStorage();
+  // Initialize synchronously for provider
+  storage.init();
+  return storage;
+});
 
 // Auth Service Provider
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -72,17 +81,17 @@ class AuthNotifier extends Notifier<AuthState> {
 
   AuthService get _authService => ref.read(authServiceProvider);
   ApiClient get _apiClient => ref.read(apiClientProvider);
+  SecureTokenStorage get _secureStorage => ref.read(secureTokenStorageProvider);
 
   Future<void> _initializeAuth() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final accessToken = prefs.getString(_kAccessToken);
-      final refreshToken = prefs.getString(_kRefreshToken);
-      final profileComplete = prefs.getBool(_kProfileComplete) ?? false;
+      final accessToken = await _secureStorage.read(key: _kAccessToken);
+      final refreshToken = await _secureStorage.read(key: _kRefreshToken);
+      final profileComplete = await _secureStorage.readBool(key: _kProfileComplete) ?? false;
 
       if (accessToken != null && refreshToken != null) {
         _apiClient.setTokens(access: accessToken, refresh: refreshToken);
-        
+
         try {
           // Timeout de 5 secondes pour éviter le blocage
           final user = await _authService.getCurrentUser().timeout(
@@ -413,18 +422,17 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> _saveTokens(String accessToken, String refreshToken, [bool profileComplete = false]) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kAccessToken, accessToken);
-    await prefs.setString(_kRefreshToken, refreshToken);
-    await prefs.setBool(_kProfileComplete, profileComplete);
+    await _secureStorage.write(key: _kAccessToken, value: accessToken);
+    // Refresh token TOUJOURS dans le stockage sécurisé
+    await _secureStorage.write(key: _kRefreshToken, value: refreshToken);
+    await _secureStorage.writeBool(key: _kProfileComplete, value: profileComplete);
   }
 
   Future<void> _clearTokens() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kAccessToken);
-    await prefs.remove(_kRefreshToken);
-    await prefs.remove(_kUserId);
-    await prefs.remove(_kProfileComplete);
+    await _secureStorage.delete(key: _kAccessToken);
+    await _secureStorage.delete(key: _kRefreshToken);
+    await _secureStorage.delete(key: _kUserId);
+    await _secureStorage.delete(key: _kProfileComplete);
   }
 
   String _extractErrorMessage(dynamic error) {
