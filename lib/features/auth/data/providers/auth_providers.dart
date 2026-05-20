@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 const _kAccessToken = 'access_token';
 const _kRefreshToken = 'refresh_token';
 const _kUserId = 'user_id';
+const _kProfileComplete = 'profile_complete';
 
 // Auth Service Provider
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -26,6 +27,7 @@ class AuthState {
   final String? accessToken;
   final String? refreshToken;
   final String? errorMessage;
+  final bool isProfileComplete;
 
   const AuthState({
     this.status = AuthStatus.initial,
@@ -33,9 +35,10 @@ class AuthState {
     this.accessToken,
     this.refreshToken,
     this.errorMessage,
+    this.isProfileComplete = false,
   });
 
-  bool get isAuthenticated => status == AuthStatus.authenticated && user != null;
+  bool get isAuthenticated => status == AuthStatus.authenticated;
   bool get isLoading => status == AuthStatus.loading;
 
   AuthState copyWith({
@@ -44,6 +47,7 @@ class AuthState {
     String? accessToken,
     String? refreshToken,
     String? errorMessage,
+    bool? isProfileComplete,
     bool clearUser = false,
     bool clearError = false,
   }) {
@@ -53,6 +57,7 @@ class AuthState {
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isProfileComplete: isProfileComplete ?? this.isProfileComplete,
     );
   }
 }
@@ -73,6 +78,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final prefs = await SharedPreferences.getInstance();
       final accessToken = prefs.getString(_kAccessToken);
       final refreshToken = prefs.getString(_kRefreshToken);
+      final profileComplete = prefs.getBool(_kProfileComplete) ?? false;
 
       if (accessToken != null && refreshToken != null) {
         _apiClient.setTokens(access: accessToken, refresh: refreshToken);
@@ -88,12 +94,17 @@ class AuthNotifier extends Notifier<AuthState> {
             user: user,
             accessToken: accessToken,
             refreshToken: refreshToken,
+            isProfileComplete: profileComplete || (user.firstName != null && user.lastName != null),
           );
         } catch (_) {
-          // Token expired, invalid, or backend unreachable
-          // Clear tokens and go to login
-          await _clearTokens();
-          state = const AuthState(status: AuthStatus.unauthenticated);
+          // Token expiré mais on a un refresh token → garder authentifié
+          // Le routeur redirigera vers complete-profile si nécessaire
+          state = AuthState(
+            status: AuthStatus.authenticated,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            isProfileComplete: profileComplete,
+          );
         }
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
@@ -280,10 +291,132 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(clearError: true);
   }
 
-  Future<void> _saveTokens(String accessToken, String refreshToken) async {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTHENTIFICATION OTP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Demande un code OTP pour le numéro de téléphone
+  Future<Map<String, dynamic>> requestOtp(String phone, {String channel = 'SMS'}) async {
+    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+
+    try {
+      final response = await _apiClient.post(
+        '/auth/request-otp',
+        data: {'phone': phone, 'channel': channel},
+      );
+      state = state.copyWith(status: AuthStatus.unauthenticated);
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: _extractErrorMessage(e),
+      );
+      rethrow;
+    }
+  }
+
+  /// Vérifie le code OTP et authentifie l'utilisateur
+  Future<Map<String, dynamic>> verifyOtp(
+    String phone,
+    String code, {
+    String? deviceName,
+    String? deviceOs,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+
+    try {
+      final response = await _apiClient.post(
+        '/auth/verify-otp',
+        data: {
+          'phone': phone,
+          'code': code,
+          if (deviceName != null) 'deviceName': deviceName,
+          if (deviceOs != null) 'deviceOs': deviceOs,
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final accessToken = data['accessToken'] as String;
+      final refreshToken = data['refreshToken'] as String;
+      final profileComplete = data['profileComplete'] as bool? ?? false;
+
+      _apiClient.setTokens(access: accessToken, refresh: refreshToken);
+      await _saveTokens(accessToken, refreshToken, profileComplete);
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        isProfileComplete: profileComplete,
+      );
+
+      return data;
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: _extractErrorMessage(e),
+      );
+      rethrow;
+    }
+  }
+
+  /// Complète le profil utilisateur
+  Future<Map<String, dynamic>> completeProfile({
+    required String firstName,
+    required String lastName,
+    String? email,
+    String? clientType,
+    String? companyName,
+    String? sector,
+    String? taxId,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+
+    try {
+      final response = await _apiClient.patch(
+        '/auth/complete-profile',
+        data: {
+          'firstName': firstName,
+          'lastName': lastName,
+          if (email != null) 'email': email,
+          if (clientType != null) 'clientType': clientType,
+          if (companyName != null) 'companyName': companyName,
+          if (sector != null) 'sector': sector,
+          if (taxId != null) 'taxId': taxId,
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final accessToken = data['accessToken'] as String;
+
+      // Mettre à jour le token et le statut
+      _apiClient.setTokens(access: accessToken, refresh: state.refreshToken);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kAccessToken, accessToken);
+      await prefs.setBool(_kProfileComplete, true);
+
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        accessToken: accessToken,
+        isProfileComplete: true,
+      );
+
+      return data;
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        errorMessage: _extractErrorMessage(e),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _saveTokens(String accessToken, String refreshToken, [bool profileComplete = false]) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAccessToken, accessToken);
     await prefs.setString(_kRefreshToken, refreshToken);
+    await prefs.setBool(_kProfileComplete, profileComplete);
   }
 
   Future<void> _clearTokens() async {
@@ -291,6 +424,7 @@ class AuthNotifier extends Notifier<AuthState> {
     await prefs.remove(_kAccessToken);
     await prefs.remove(_kRefreshToken);
     await prefs.remove(_kUserId);
+    await prefs.remove(_kProfileComplete);
   }
 
   String _extractErrorMessage(dynamic error) {

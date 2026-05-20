@@ -2,6 +2,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/pricing_service.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../auth/data/providers/auth_providers.dart';
 import '../../../cart/data/providers/cart_provider.dart';
 import '../../../profile/data/providers/project_providers.dart';
@@ -23,7 +25,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   PaymentType _paymentType = PaymentType.instant;
 
   // ─── Payment plan (échelonné) ───
-  int _months = 3; // Durée en mois (3 à 12)
+  int _months = PricingService.defaultDuration;
   bool _acceptedCGV = false;
 
   // ─── Correspondant secondaire (optionnel) ───
@@ -32,18 +34,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _secondaryPhoneController = TextEditingController();
   final _secondaryNoteController = TextEditingController();
 
-  // Frais de livraison — mode Standard uniquement
-  static const double _deliveryFee = 15000;
-  double _getTotal(double subtotal) => subtotal + _deliveryFee;
-  int get _totalPayments => _months * 2; // 2 paiements par mois
-  // L'acompte (15%) est calculé sur le total (produits + livraison) comme le backend
-  double _getFirstPayment(double total) => (total * 0.15).roundToDouble();
-  // Les échéances couvrent le reste (total - acompte)
-  double _getInstallmentAmount(double total, double firstPayment) =>
-      ((total - firstPayment) / _totalPayments).floorToDouble();
-  bool get _hasFees => _months > 6;
-  double _getFees(double total) => _hasFees ? (total * 0.02) : 0;
-  double _getGrandTotal(double total) => total + _getFees(total);
+  // Utiliser PricingService pour tous les calculs
+  PaymentPlan _getPaymentPlan(double subtotal) {
+    return PricingService.calculatePaymentPlan(
+      subtotal: subtotal,
+      months: _months,
+    );
+  }
 
 
   @override
@@ -91,12 +88,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       });
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final total = _getTotal(subtotal);
-    // L'acompte (15%) est calculé sur le total (produits + livraison)
-    final firstPayment = _getFirstPayment(total);
-    final installmentAmount = _getInstallmentAmount(total, firstPayment);
-    final fees = _getFees(total);
-    final grandTotal = _getGrandTotal(total);
+    
+    // Utiliser PricingService pour tous les calculs
+    final plan = _getPaymentPlan(subtotal);
+    final total = plan.total;
+    final firstPayment = plan.deposit;
+    final installmentAmount = plan.installmentAmount;
+    final fees = plan.managementFee;
+    final grandTotal = plan.grandTotal;
 
     // Redirect to cart if empty
     if (cart.isEmpty) {
@@ -137,7 +136,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     icon: Icons.local_shipping_outlined,
                     title: 'Standard',
                     subtitle: '3 à 5 jours ouvrés',
-                    trailing: Text('15 000 FCFA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    trailing: Text('${_fmt(PricingService.deliveryFeeStandard)} FCFA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
                   ),
 
                   const SizedBox(height: 8),
@@ -180,9 +179,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             const SizedBox(height: 12),
                             Wrap(
                               spacing: 8, runSpacing: 8,
-                              children: [3, 4, 5, 6, 8, 10, 12].map((n) {
+                              children: PricingService.availableMonths.map((n) {
                                 final sel = _months == n;
-                                final hasExtraFee = n > 6;
+                                final hasExtraFee = PricingService.hasManagementFee(n);
                                 return GestureDetector(
                                   onTap: () => setState(() => _months = n),
                                   child: Container(
@@ -216,14 +215,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  _SummaryRow(label: '1er versement (15%)', value: '${_fmt(firstPayment)} FCFA', bold: true),
+                                  _SummaryRow(label: '1er versement (${Formatters.percentage(PricingService.depositRate)})', value: '${_fmt(firstPayment)} FCFA', bold: true),
                                   const SizedBox(height: 6),
-                                  _SummaryRow(label: '$_months mois × 2 paiem./mois', value: '${_totalPayments} échéances'),
+                                  _SummaryRow(label: '$_months mois × ${PricingService.paymentsPerMonth} paiem./mois', value: '${plan.totalPayments} échéances'),
                                   const SizedBox(height: 6),
-                                  _SummaryRow(label: '${_totalPayments - 1} échéances de', value: '${_fmt(installmentAmount)} FCFA'),
-                                  if (_hasFees) ...[
+                                  _SummaryRow(label: '${plan.regularPaymentsCount} échéances de', value: '${_fmt(installmentAmount)} FCFA'),
+                                  if (plan.hasManagementFee) ...[
                                     const SizedBox(height: 6),
-                                    _SummaryRow(label: 'Frais de gestion (2%)', value: '${_fmt(fees)} FCFA', color: AppColors.error),
+                                    _SummaryRow(label: 'Frais de gestion (${Formatters.percentage(PricingService.managementFeeRate)})', value: '${_fmt(fees)} FCFA', color: AppColors.error),
                                   ],
                                   const SizedBox(height: 4),
                                   const Divider(),
@@ -263,8 +262,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       children: [
                         _SummaryRow(label: 'Sous-total articles (${cart.itemCount})', value: '${_fmt(subtotal)} FCFA'),
                         const SizedBox(height: 10),
-                        _SummaryRow(label: 'Frais de livraison', value: '${_fmt(_deliveryFee)} FCFA'),
-                        if (_paymentType == PaymentType.installment && _hasFees) ...[
+                        _SummaryRow(label: 'Frais de livraison', value: '${_fmt(plan.deliveryFee)} FCFA'),
+                        if (_paymentType == PaymentType.installment && plan.hasManagementFee) ...[
                           const SizedBox(height: 10),
                           _SummaryRow(label: 'Frais de gestion', value: '${_fmt(fees)} FCFA', color: AppColors.error),
                         ],
@@ -368,7 +367,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       'orderId': 'NEW', // Will be created by backend
                       'isFirstPayment': _paymentType == PaymentType.installment,
                       if (_paymentType == PaymentType.installment) ...{
-                        'totalInstallments': _totalPayments, // Total échéances (mois × 2)
+                        'totalInstallments': plan.totalPayments, // Total échéances (mois × 2)
                         'paymentDurationMonths': _months, // Durée en mois pour le backend
                       },
                       'cartItems': ref.read(cartProvider.notifier).toOrderItems(),
@@ -629,15 +628,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  String _fmt(double v) {
-    final s = v.toStringAsFixed(0);
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
+  // Utiliser Formatters.priceCompact pour le formatage des prix
+  String _fmt(double v) => Formatters.priceCompact(v);
 }
 
 // ═══════════════════════════════════════════════════

@@ -1,112 +1,21 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../domain/models/user.dart';
+import '../../domain/models/auth_result.dart';
 
-class User {
-  final String id;
-  final String? phone;
-  final String? email;
-  final String firstName;
-  final String lastName;
-  final String clientType;
-  final String? companyName;
-  final String? taxId;
-  final String? sector;
-  final String? profilePhotoUrl;
-  final String role;
-  final String status;
-  final bool emailVerified;
-  final String authProvider;
-  final DateTime createdAt;
+// Ré-exporter les modèles pour la rétrocompatibilité
+export '../../domain/models/user.dart';
+export '../../domain/models/auth_result.dart';
 
-  User({
-    required this.id,
-    this.phone,
-    this.email,
-    required this.firstName,
-    required this.lastName,
-    this.clientType = 'PARTICULIER',
-    this.companyName,
-    this.taxId,
-    this.sector,
-    this.profilePhotoUrl,
-    required this.role,
-    required this.status,
-    required this.emailVerified,
-    required this.authProvider,
-    required this.createdAt,
-  });
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as String,
-      phone: json['phone'] as String?,
-      email: json['email'] as String?,
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
-      clientType: json['clientType'] as String? ?? 'PARTICULIER',
-      companyName: json['companyName'] as String?,
-      taxId: json['taxId'] as String?,
-      sector: json['sector'] as String?,
-      profilePhotoUrl: json['profilePhotoUrl'] as String?,
-      role: json['role'] as String? ?? 'CLIENT',
-      status: json['status'] as String? ?? 'ACTIVE',
-      emailVerified: json['emailVerified'] as bool? ?? false,
-      authProvider: json['authProvider'] as String? ?? 'LOCAL',
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
-    );
-  }
-
-  String get fullName => '$firstName $lastName'.trim();
-  bool get isActive => status == 'ACTIVE';
-  bool get isProfessional => clientType == 'PROFESSIONNEL';
-}
-
-class AuthResult {
-  final User user;
-  final String accessToken;
-  final String refreshToken;
-  final String? message;
-  final bool? isNewUser;
-  final bool? needsPhoneCompletion;
-
-  AuthResult({
-    required this.user,
-    required this.accessToken,
-    required this.refreshToken,
-    this.message,
-    this.isNewUser,
-    this.needsPhoneCompletion,
-  });
-
-  factory AuthResult.fromJson(Map<String, dynamic> json) {
-    return AuthResult(
-      user: User.fromJson(json['user'] as Map<String, dynamic>),
-      accessToken: json['accessToken'] as String,
-      refreshToken: json['refreshToken'] as String,
-      message: json['message'] as String?,
-      isNewUser: json['isNewUser'] as bool?,
-      needsPhoneCompletion: json['needsPhoneCompletion'] as bool?,
-    );
-  }
-}
-
-class TokenPair {
-  final String accessToken;
-  final String refreshToken;
-
-  TokenPair({required this.accessToken, required this.refreshToken});
-
-  factory TokenPair.fromJson(Map<String, dynamic> json) {
-    return TokenPair(
-      accessToken: json['accessToken'] as String,
-      refreshToken: json['refreshToken'] as String,
-    );
-  }
-}
-
+/// Service d'authentification.
+///
+/// Gère toutes les opérations d'authentification :
+/// - Login (email/téléphone + mot de passe)
+/// - Inscription
+/// - Authentification Google
+/// - Rafraîchissement des tokens
+/// - Récupération de mot de passe
 class AuthService {
   final ApiClient _apiClient;
   late final GoogleSignIn _googleSignIn;

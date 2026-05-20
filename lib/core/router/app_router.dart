@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +7,9 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/otp_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/phone_input_screen.dart';
+import '../../features/auth/presentation/screens/otp_verification_screen.dart';
+import '../../features/auth/presentation/screens/complete_profile_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/catalog/presentation/screens/catalog_screen.dart';
 import '../../features/catalog/presentation/screens/product_detail_screen.dart';
@@ -53,11 +56,28 @@ final _authNotifierForRouterProvider = Provider<AuthNotifierForRouter>((ref) {
 });
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Auth routes that don't require authentication
-  const authRoutes = ['/login', '/register', '/otp', '/forgot-password', '/onboarding', '/splash'];
-  
+  // Routes d'authentification (accessibles sans être connecté)
+  const authRoutes = [
+    '/login',
+    '/register',
+    '/otp',
+    '/forgot-password',
+    '/onboarding',
+    '/splash',
+    '/auth/phone',
+    '/auth/verify-otp',
+  ];
+
+  // Routes accessibles même avec profil incomplet
+  const profileIncompleteRoutes = [
+    '/auth/complete-profile',
+    '/auth/phone',
+    '/auth/verify-otp',
+    '/splash',
+  ];
+
   final authNotifier = ref.watch(_authNotifierForRouterProvider);
-  
+
   return GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: true,
@@ -65,31 +85,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isAuthenticated = authState.isAuthenticated;
+      final isProfileComplete = authState.isProfileComplete;
       final isAuthRoute = authRoutes.contains(state.matchedLocation);
+      final isProfileIncompleteRoute =
+          profileIncompleteRoutes.contains(state.matchedLocation);
       final isInitializing = authState.status == AuthStatus.initial;
       final isSplash = state.matchedLocation == '/splash';
-      
-      // Show splash while initializing
+      final isCompleteProfileRoute =
+          state.matchedLocation == '/auth/complete-profile';
+
+      // Afficher le splash pendant l'initialisation
       if (isInitializing && !isSplash) {
         return '/splash';
       }
-      
-      // After initialization, redirect from splash
+
+      // Après initialisation, rediriger depuis le splash
       if (!isInitializing && isSplash) {
-        return isAuthenticated ? '/home' : '/login';
-      }
-      
-      // If not authenticated and trying to access protected route, redirect to login
-      if (!isAuthenticated && !isAuthRoute) {
-        return '/login';
-      }
-      
-      // If authenticated and trying to access auth route, redirect to home
-      if (isAuthenticated && isAuthRoute && !isSplash) {
+        if (!isAuthenticated) {
+          return '/auth/phone'; // Nouveau parcours OTP
+        }
+        if (!isProfileComplete) {
+          return '/auth/complete-profile';
+        }
         return '/home';
       }
-      
-      return null; // No redirect
+
+      // Si non authentifié et tentative d'accès à une route protégée
+      if (!isAuthenticated && !isAuthRoute) {
+        return '/auth/phone';
+      }
+
+      // Si authentifié mais profil incomplet
+      if (isAuthenticated && !isProfileComplete && !isProfileIncompleteRoute) {
+        return '/auth/complete-profile';
+      }
+
+      // Si authentifié avec profil complet et tentative d'accès à une route auth
+      if (isAuthenticated &&
+          isProfileComplete &&
+          (isAuthRoute || isCompleteProfileRoute) &&
+          !isSplash) {
+        return '/home';
+      }
+
+      return null; // Pas de redirection
     },
     routes: [
       // === Splash Screen ===
@@ -103,6 +142,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', name: 'register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/otp', name: 'otp', builder: (_, __) => const OtpScreen()),
       GoRoute(path: '/forgot-password', name: 'forgotPassword', builder: (_, __) => const ForgotPasswordScreen()),
+
+      // === Auth OTP (nouveau parcours) ===
+      GoRoute(
+        path: '/auth/phone',
+        name: 'phoneInput',
+        builder: (_, __) => const PhoneInputScreen(),
+      ),
+      GoRoute(
+        path: '/auth/verify-otp',
+        name: 'verifyOtp',
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return OtpVerificationScreen(
+            phone: extra['phone'] as String? ?? '',
+            purpose: extra['purpose'] as String?,
+            debugCode: extra['debugCode'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/auth/complete-profile',
+        name: 'completeProfile',
+        builder: (_, __) => const CompleteProfileScreen(),
+      ),
 
       // === Main App (avec bottom nav) ===
       ShellRoute(

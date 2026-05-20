@@ -2,18 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/color_utils.dart';
 import '../../../cart/data/providers/cart_provider.dart';
 import '../../../catalog/models/product.dart';
 import '../../../catalog/providers/catalog_providers.dart';
-
-Color _hexColor(String? hex, Color fallback) {
-  if (hex == null) return fallback;
-  try {
-    return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-  } catch (_) {
-    return fallback;
-  }
-}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -251,8 +243,8 @@ class HomeScreen extends ConsumerWidget {
                   spacing: 12,
                   runSpacing: 12,
                   children: categories.take(4).map((cat) {
-                    final color = _hexColor(cat.colorHex, AppColors.primary);
-                    final bgColor = _hexColor(cat.bgColorHex, AppColors.primary.withValues(alpha: 0.1));
+                    final color = cat.colorHex.toColor(fallback: AppColors.primary);
+                    final bgColor = cat.bgColorHex.toColor(fallback: AppColors.primary.withValues(alpha: 0.1));
                     return SizedBox(
                       width: (MediaQuery.of(context).size.width - 44) / 2,
                       child: _CategoryCard(
@@ -417,14 +409,8 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cat = product.category;
-    Color bgColor = const Color(0xFFF5F5F5);
-    Color iconColor = AppColors.primary;
-    if (cat?.bgColorHex != null) {
-      try { bgColor = Color(int.parse('FF${cat!.bgColorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
-    }
-    if (cat?.colorHex != null) {
-      try { iconColor = Color(int.parse('FF${cat!.colorHex!.replaceAll('#', '')}', radix: 16)); } catch (_) {}
-    }
+    final bgColor = cat?.bgColorHex.toColor(fallback: const Color(0xFFF5F5F5)) ?? const Color(0xFFF5F5F5);
+    final iconColor = cat?.colorHex.toColor(fallback: AppColors.primary) ?? AppColors.primary;
 
     return GestureDetector(
       onTap: onTap,
