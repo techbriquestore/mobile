@@ -1,4 +1,3 @@
-import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/models/user.dart';
@@ -13,18 +12,13 @@ export '../../domain/models/auth_result.dart';
 /// Gère toutes les opérations d'authentification :
 /// - Login (email/téléphone + mot de passe)
 /// - Inscription
-/// - Authentification Google
+/// - Authentification Google (désactivé temporairement)
 /// - Rafraîchissement des tokens
 /// - Récupération de mot de passe
 class AuthService {
   final ApiClient _apiClient;
-  late final GoogleSignIn _googleSignIn;
 
-  AuthService({required ApiClient apiClient}) : _apiClient = apiClient {
-    _googleSignIn = GoogleSignIn(
-      scopes: ['email', 'profile'],
-    );
-  }
+  AuthService({required ApiClient apiClient}) : _apiClient = apiClient;
 
   Future<AuthResult> login({
     required String identifier,
@@ -68,52 +62,14 @@ class AuthService {
     return AuthResult.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Google Sign-In désactivé temporairement (incompatible avec chemin Windows)
+  /// Pour réactiver : ajouter google_sign_in dans pubspec.yaml
   Future<AuthResult?> signInWithGoogle() async {
-    try {
-      // Trigger Google Sign-In flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
-      if (googleUser == null) {
-        // User cancelled the sign-in
-        return null;
-      }
-
-      // Obtain auth details from request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      
-      // Get the ID token
-      final String? idToken = googleAuth.idToken;
-      
-      if (idToken == null) {
-        throw Exception('Impossible d\'obtenir le token Google');
-      }
-
-      // Send ID token to backend
-      final response = await _apiClient.post(
-        ApiConstants.googleAuth,
-        data: {'idToken': idToken},
-      );
-      
-      return AuthResult.fromJson(response.data as Map<String, dynamic>);
-    } catch (e) {
-      // Sign out on error to reset state
-      try { await _googleSignIn.signOut(); } catch (_) {}
-      
-      // Check if it's a configuration issue (no google-services.json, etc.)
-      final msg = e.toString().toLowerCase();
-      if (msg.contains('apiexception') || 
-          msg.contains('sign_in_failed') || 
-          msg.contains('developer_error') ||
-          msg.contains('network_error') ||
-          msg.contains('platformexception')) {
-        throw Exception('La connexion Google n\'est pas disponible pour le moment. Utilisez l\'inscription par email.');
-      }
-      rethrow;
-    }
+    throw Exception('La connexion Google n\'est pas disponible pour le moment. Utilisez l\'authentification par téléphone.');
   }
 
   Future<void> signOutGoogle() async {
-    await _googleSignIn.signOut();
+    // Désactivé temporairement
   }
 
   Future<AuthResult> googleAuth({required String idToken}) async {

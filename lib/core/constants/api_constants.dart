@@ -8,10 +8,11 @@
   static const String productionUrl = 'https://backend-43ba.onrender.com/api/v1'; // Backend déployé sur Render
 
   // Bascule entre local et production → change à true pour utiliser le backend déployé
-  static const bool useProduction = true;
+  static const bool useProduction = false;
 
   // URL utilisée selon la plateforme et le flag useProduction
-  static String get baseUrl => useProduction ? productionUrl : localUrl;
+  // Pour émulateur Android, utiliser emulatorUrl (10.0.2.2 = localhost du PC hôte)
+  static String get baseUrl => useProduction ? productionUrl : emulatorUrl;
 
   // Timeouts plus longs si on utilise le backend Render (cold start ~30-60s sur free tier)
   static Duration get connectTimeout => useProduction ? const Duration(seconds: 90) : const Duration(seconds: 15);

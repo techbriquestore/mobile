@@ -36,12 +36,12 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
       return 'Veuillez entrer votre numéro de téléphone';
     }
 
-    // Nettoyer le numéro
+    // Nettoyer le numéro (enlever espaces, tirets, parenthèses)
     final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)]'), '');
 
-    // Vérifier le format (07, 05, 01 pour Côte d'Ivoire)
-    if (!RegExp(r'^(0[157]\d{8}|(\+?225)?[0157]\d{8})$').hasMatch(cleaned)) {
-      return 'Numéro invalide. Format attendu : 07XXXXXXXX';
+    // Vérifier le format : 10 chiffres commençant par 07, 05 ou 01
+    if (!RegExp(r'^0[157]\d{8}$').hasMatch(cleaned)) {
+      return 'Numéro invalide. Format : 07XXXXXXXX (10 chiffres)';
     }
 
     return null;
