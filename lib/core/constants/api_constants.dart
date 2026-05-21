@@ -2,8 +2,8 @@
   ApiConstants._();
 
   // URLs disponibles
-  static const String localUrl = 'http://192.168.1.146:3000/api/v1'; // Appareil physique → IP WiFi du PC
-  static const String emulatorUrl = 'http://10.0.2.2:3000/api/v1'; // Émulateur Android → alias localhost
+  static const String localUrl = 'http://192.168.1.3:3000/api/v1'; // IP WiFi actuelle du PC
+  static const String emulatorUrl = 'http://10.0.2.2:3000/api/v1'; // Émulateur Android → alias localhost (ne marche pas toujours)
   static const String devUrl = 'http://localhost:3000/api/v1'; // Web / Chrome
   static const String productionUrl = 'https://backend-43ba.onrender.com/api/v1'; // Backend déployé sur Render
 
@@ -11,8 +11,8 @@
   static const bool useProduction = false;
 
   // URL utilisée selon la plateforme et le flag useProduction
-  // Pour émulateur Android, utiliser emulatorUrl (10.0.2.2 = localhost du PC hôte)
-  static String get baseUrl => useProduction ? productionUrl : emulatorUrl;
+  // Utiliser devUrl pour Chrome/Web (localhost)
+  static String get baseUrl => useProduction ? productionUrl : devUrl;
 
   // Timeouts plus longs si on utilise le backend Render (cold start ~30-60s sur free tier)
   static Duration get connectTimeout => useProduction ? const Duration(seconds: 90) : const Duration(seconds: 15);
