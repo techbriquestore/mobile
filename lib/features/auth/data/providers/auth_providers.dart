@@ -370,8 +370,20 @@ class AuthNotifier extends Notifier<AuthState> {
       _apiClient.setTokens(access: accessToken, refresh: refreshToken);
       await _saveTokens(accessToken, refreshToken, profileComplete);
 
+      // Si le profil est complet (utilisateur existant), charger ses données
+      User? user;
+      if (profileComplete) {
+        try {
+          user = await _authService.getCurrentUser();
+          print('[AUTH] verifyOtp: user chargé -> ${user.firstName} ${user.lastName}');
+        } catch (e) {
+          print('[AUTH] verifyOtp: impossible de charger le user -> $e');
+        }
+      }
+
       state = AuthState(
         status: AuthStatus.authenticated,
+        user: user,
         accessToken: accessToken,
         refreshToken: refreshToken,
         isProfileComplete: profileComplete,
@@ -399,7 +411,8 @@ class AuthNotifier extends Notifier<AuthState> {
     String? sector,
     String? taxId,
   }) async {
-    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+    // NE PAS mettre status=loading ici : cela rendrait isAuthenticated=false
+    // et le router redirigerait brièvement vers /auth/phone (flash)
 
     // S'assurer que le token est défini dans l'apiClient
     print('[AUTH] completeProfile: apiClient.accessToken=${_apiClient.accessToken != null ? "SET" : "NULL"}, state.accessToken=${state.accessToken != null ? "SET" : "NULL"}');

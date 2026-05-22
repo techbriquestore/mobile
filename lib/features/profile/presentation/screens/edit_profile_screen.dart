@@ -18,7 +18,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late TextEditingController _emailCtrl;
   late TextEditingController _companyCtrl;
   bool _isSaving = false;
-  bool _initialized = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _firstNameCtrl = TextEditingController();
+    _lastNameCtrl = TextEditingController();
+    _phoneCtrl = TextEditingController();
+    _emailCtrl = TextEditingController();
+    _companyCtrl = TextEditingController();
+    _loadUserData();
+  }
 
   @override
   void dispose() {
@@ -29,16 +40,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _companyCtrl.dispose();
     super.dispose();
   }
-  
-  void _initControllers() {
-    if (_initialized) return;
-    final user = ref.read(authProvider).user;
-    _firstNameCtrl = TextEditingController(text: user?.firstName ?? '');
-    _lastNameCtrl = TextEditingController(text: user?.lastName ?? '');
-    _phoneCtrl = TextEditingController(text: user?.phone ?? '');
-    _emailCtrl = TextEditingController(text: user?.email ?? '');
-    _companyCtrl = TextEditingController(text: user?.companyName ?? '');
-    _initialized = true;
+
+  Future<void> _loadUserData() async {
+    // D'abord essayer depuis le state
+    final stateUser = ref.read(authProvider).user;
+    if (stateUser != null && stateUser.firstName.isNotEmpty) {
+      _fillControllers(stateUser);
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // Sinon charger depuis le backend
+    try {
+      final user = await ref.read(authServiceProvider).getCurrentUser();
+      if (mounted) {
+        _fillControllers(user);
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _fillControllers(dynamic user) {
+    _firstNameCtrl.text = user.firstName ?? '';
+    _lastNameCtrl.text = user.lastName ?? '';
+    _phoneCtrl.text = user.phone ?? '';
+    _emailCtrl.text = user.email ?? '';
+    _companyCtrl.text = user.companyName ?? '';
   }
 
   InputDecoration _inputDeco(String hint, IconData icon) {
@@ -53,10 +82,46 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
   }
 
+  Future<void> _saveProfile() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(authProvider.notifier).completeProfile(
+        firstName: _firstNameCtrl.text.trim(),
+        lastName: _lastNameCtrl.text.trim(),
+        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        companyName: _companyCtrl.text.trim().isEmpty ? null : _companyCtrl.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil mis à jour !'), backgroundColor: AppColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    _initControllers();
-    
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF7F7F7),
+        appBar: AppBar(
+          backgroundColor: Colors.white, elevation: 0,
+          leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary), onPressed: () => context.pop()),
+          centerTitle: true,
+          title: const Text('Mes informations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
@@ -115,12 +180,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 28), color: Colors.white,
             child: SizedBox(width: double.infinity, height: 52,
               child: ElevatedButton(
-                onPressed: _isSaving ? null : () {
-                  setState(() => _isSaving = true);
-                  Future.delayed(const Duration(seconds: 1), () {
-                    if (mounted) { setState(() => _isSaving = false); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil mis à jour !'), backgroundColor: AppColors.success)); }
-                  });
-                },
+                onPressed: _isSaving ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                 child: _isSaving
                     ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
