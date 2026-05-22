@@ -50,7 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_currentPage < _pages.length - 1) {
       _pageController.nextPage(duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
     } else {
-      context.go('/login');
+      context.go('/auth/phone');
     }
   }
 
@@ -67,7 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 16, right: 20),
                 child: GestureDetector(
-                  onTap: () => context.go('/login'),
+                  onTap: () => context.go('/auth/phone'),
                   child: Text('Passer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.grey.shade500)),
                 ),
               ),

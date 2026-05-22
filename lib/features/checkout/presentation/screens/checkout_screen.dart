@@ -84,7 +84,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 2),
           ));
-        context.go('/login');
+        context.go('/auth/phone');
       });
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

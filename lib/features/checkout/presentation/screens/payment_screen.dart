@@ -108,7 +108,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ));
-      context.push('/login');
+      context.push('/auth/phone');
       return;
     }
     

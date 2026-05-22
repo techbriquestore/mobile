@@ -174,7 +174,7 @@ class ProfileScreen extends ConsumerWidget {
                   onPressed: () async {
                     await ref.read(authProvider.notifier).logout();
                     if (context.mounted) {
-                      context.go('/login');
+                      context.go('/auth/phone');
                     }
                   },
                   icon: const Icon(Icons.logout, size: 20),

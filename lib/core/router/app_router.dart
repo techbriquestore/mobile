@@ -3,10 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/data/providers/auth_providers.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/register_screen.dart';
-import '../../features/auth/presentation/screens/otp_screen.dart';
-import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/phone_input_screen.dart';
 import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/complete_profile_screen.dart';
@@ -58,10 +54,6 @@ final _authNotifierForRouterProvider = Provider<AuthNotifierForRouter>((ref) {
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Routes d'authentification (accessibles sans être connecté)
   const authRoutes = [
-    '/login',
-    '/register',
-    '/otp',
-    '/forgot-password',
     '/onboarding',
     '/splash',
     '/auth/phone',
@@ -138,13 +130,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // === Onboarding ===
       GoRoute(path: '/onboarding', name: 'onboarding', builder: (_, __) => const OnboardingScreen()),
 
-      // === Auth (sans shell) ===
-      GoRoute(path: '/login', name: 'login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', name: 'register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(path: '/otp', name: 'otp', builder: (_, __) => const OtpScreen()),
-      GoRoute(path: '/forgot-password', name: 'forgotPassword', builder: (_, __) => const ForgotPasswordScreen()),
-
-      // === Auth OTP (nouveau parcours) ===
+      // === Auth OTP ===
       GoRoute(
         path: '/auth/phone',
         name: 'phoneInput',

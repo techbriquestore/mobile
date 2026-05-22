@@ -163,7 +163,7 @@ class _SettingsBody extends ConsumerWidget {
                         onPressed: () async {
                           Navigator.pop(context);
                           await ref.read(authProvider.notifier).logout();
-                          if (context.mounted) context.go('/login');
+                          if (context.mounted) context.go('/auth/phone');
                         },
                         child: const Text('Déconnexion', style: TextStyle(color: AppColors.error)),
                       ),
