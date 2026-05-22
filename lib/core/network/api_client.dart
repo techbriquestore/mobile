@@ -107,13 +107,11 @@ class _AuthInterceptor extends Interceptor {
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
-    print('[API] ${options.method} ${options.path} | token=${token != null ? "SET" : "NULL"}');
     handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    print('[API] ERROR ${err.response?.statusCode} on ${err.requestOptions.method} ${err.requestOptions.path}: ${err.response?.data}');
     if (err.response?.statusCode == 401 && !_isRefreshing) {
       _isRefreshing = true;
       try {
