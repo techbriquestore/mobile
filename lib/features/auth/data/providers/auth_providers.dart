@@ -102,7 +102,7 @@ class AuthNotifier extends Notifier<AuthState> {
             user: user,
             accessToken: accessToken,
             refreshToken: refreshToken,
-            isProfileComplete: profileComplete || (user.firstName != null && user.lastName != null),
+            isProfileComplete: profileComplete || user.isProfileComplete,
           );
         } catch (_) {
           if (profileComplete) {

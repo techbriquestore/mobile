@@ -119,6 +119,20 @@ class User {
   /// Vérifie si l'utilisateur est un professionnel.
   bool get isProfessional => clientType == 'PROFESSIONNEL';
 
+  /// Vérifie si le profil est complet selon le type d'utilisateur.
+  ///
+  /// - PARTICULIER : firstName + lastName
+  /// - PROFESSIONNEL : firstName + lastName + companyName + sector + taxId
+  bool get isProfileComplete {
+    if (firstName.isEmpty || lastName.isEmpty) return false;
+    if (clientType == 'PROFESSIONNEL') {
+      if (companyName == null || companyName!.isEmpty) return false;
+      if (sector == null || sector!.isEmpty) return false;
+      if (taxId == null || taxId!.isEmpty) return false;
+    }
+    return true;
+  }
+
   /// Vérifie si l'utilisateur est un administrateur.
   bool get isAdmin => role == 'ADMIN';
 
