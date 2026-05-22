@@ -10,6 +10,7 @@
   // Bascule entre local et production → change à true pour utiliser le backend déployé
   // NOTE: Émulateur Android ne peut pas se connecter au backend local (10.0.2.2 ne fonctionne pas)
   // Utiliser production (Render) pour tester sur émulateur
+  // IMPORTANT: utiliser production (Render) car local est inaccessible depuis émulateur
   static const bool useProduction = true;
 
   // URL utilisée selon la plateforme et le flag useProduction

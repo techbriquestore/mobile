@@ -69,6 +69,7 @@ class ApiClient {
     _refreshToken = null;
   }
 
+  String get baseUrl => _dio.options.baseUrl;
   Dio get dio => _dio;
 
   Future<Response> get(String path, {Map<String, dynamic>? queryParams}) =>
@@ -106,11 +107,13 @@ class _AuthInterceptor extends Interceptor {
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
+    print('[API] ${options.method} ${options.path} | token=${token != null ? "SET" : "NULL"}');
     handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
+    print('[API] ERROR ${err.response?.statusCode} on ${err.requestOptions.method} ${err.requestOptions.path}: ${err.response?.data}');
     if (err.response?.statusCode == 401 && !_isRefreshing) {
       _isRefreshing = true;
       try {

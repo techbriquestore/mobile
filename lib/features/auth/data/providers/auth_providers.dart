@@ -87,6 +87,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final accessToken = await _secureStorage.read(key: _kAccessToken);
       final refreshToken = await _secureStorage.read(key: _kRefreshToken);
       final profileComplete = await _secureStorage.readBool(key: _kProfileComplete) ?? false;
+      print('[AUTH] _initializeAuth: accessToken=${accessToken != null ? "SET(${accessToken.substring(0, 10)}...)" : "NULL"}, refreshToken=${refreshToken != null ? "SET" : "NULL"}, profileComplete=$profileComplete');
 
       if (accessToken != null && refreshToken != null) {
         _apiClient.setTokens(access: accessToken, refresh: refreshToken);
@@ -97,6 +98,7 @@ class AuthNotifier extends Notifier<AuthState> {
             const Duration(seconds: 10),
             onTimeout: () => throw Exception('Timeout'),
           );
+          print('[AUTH] _initializeAuth: getCurrentUser OK -> user.id=${user.id}, user.firstName=${user.firstName}, user.isProfileComplete=${user.isProfileComplete}');
           state = AuthState(
             status: AuthStatus.authenticated,
             user: user,
@@ -104,9 +106,12 @@ class AuthNotifier extends Notifier<AuthState> {
             refreshToken: refreshToken,
             isProfileComplete: profileComplete || user.isProfileComplete,
           );
-        } catch (_) {
+          print('[AUTH] _initializeAuth: state -> authenticated, isProfileComplete=${state.isProfileComplete}');
+        } catch (e) {
+          print('[AUTH] _initializeAuth: getCurrentUser FAILED -> $e');
           if (profileComplete) {
             // Profil complet → garder authentifié, le refresh token gérera la suite
+            print('[AUTH] _initializeAuth: profileComplete=true, garder authentifié');
             state = AuthState(
               status: AuthStatus.authenticated,
               accessToken: accessToken,
@@ -114,6 +119,7 @@ class AuthNotifier extends Notifier<AuthState> {
               isProfileComplete: true,
             );
           } else {
+            print('[AUTH] _initializeAuth: profileComplete=false ET backend injoignable -> unauthenticated');
             // Profil incomplet ET backend injoignable → impossible de continuer
             // Forcer le redémarrage du flux d'authentification
             _apiClient.clearTokens();
@@ -314,13 +320,17 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
 
     try {
+      print('[AUTH] requestOtp: phone=$phone, channel=$channel');
+      print('[AUTH] requestOtp: baseUrl=${_apiClient.baseUrl}');
       final response = await _apiClient.post(
         '/auth/request-otp',
         data: {'phone': phone, 'channel': channel},
       );
+      print('[AUTH] requestOtp: response=${response.data}');
       state = state.copyWith(status: AuthStatus.unauthenticated);
       return response.data as Map<String, dynamic>;
     } catch (e) {
+      print('[AUTH] requestOtp: ERROR -> $e');
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
         errorMessage: _extractErrorMessage(e),
@@ -350,9 +360,12 @@ class AuthNotifier extends Notifier<AuthState> {
       );
 
       final data = response.data as Map<String, dynamic>;
+      print('[AUTH] verifyOtp: response data keys=${data.keys.toList()}');
       final accessToken = data['accessToken'] as String;
       final refreshToken = data['refreshToken'] as String;
       final profileComplete = data['profileComplete'] as bool? ?? false;
+      print('[AUTH] verifyOtp: profileComplete=$profileComplete, isNewUser=${data['isNewUser']}');
+      print('[AUTH] verifyOtp: accessToken=${accessToken.substring(0, 20)}...');
 
       _apiClient.setTokens(access: accessToken, refresh: refreshToken);
       await _saveTokens(accessToken, refreshToken, profileComplete);
@@ -363,9 +376,11 @@ class AuthNotifier extends Notifier<AuthState> {
         refreshToken: refreshToken,
         isProfileComplete: profileComplete,
       );
+      print('[AUTH] verifyOtp: state -> authenticated, isProfileComplete=${state.isProfileComplete}');
 
       return data;
     } catch (e) {
+      print('[AUTH] verifyOtp: ERROR -> $e');
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
         errorMessage: _extractErrorMessage(e),
@@ -387,11 +402,14 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
 
     // S'assurer que le token est défini dans l'apiClient
+    print('[AUTH] completeProfile: apiClient.accessToken=${_apiClient.accessToken != null ? "SET" : "NULL"}, state.accessToken=${state.accessToken != null ? "SET" : "NULL"}');
     if (_apiClient.accessToken == null && state.accessToken != null) {
+      print('[AUTH] completeProfile: restauration du token depuis state');
       _apiClient.setTokens(access: state.accessToken, refresh: state.refreshToken);
     }
 
     try {
+      print('[AUTH] completeProfile: envoi PATCH /auth/complete-profile avec firstName=$firstName, lastName=$lastName, clientType=$clientType');
       final response = await _apiClient.patch(
         '/auth/complete-profile',
         data: {
@@ -406,7 +424,14 @@ class AuthNotifier extends Notifier<AuthState> {
       );
 
       final data = response.data as Map<String, dynamic>;
+      print('[AUTH] completeProfile: response data=$data');
       final accessToken = data['accessToken'] as String;
+
+      // Parser l'objet user retourné par le backend
+      User? updatedUser;
+      if (data['user'] != null) {
+        updatedUser = User.fromJson(data['user'] as Map<String, dynamic>);
+      }
 
       // Mettre à jour le token et le statut
       _apiClient.setTokens(access: accessToken, refresh: state.refreshToken);
@@ -415,9 +440,11 @@ class AuthNotifier extends Notifier<AuthState> {
       await _secureStorage.write(key: _kAccessToken, value: accessToken);
       await _secureStorage.writeBool(key: _kProfileComplete, value: true);
 
-      state = state.copyWith(
+      state = AuthState(
         status: AuthStatus.authenticated,
+        user: updatedUser,
         accessToken: accessToken,
+        refreshToken: state.refreshToken,
         isProfileComplete: true,
       );
 

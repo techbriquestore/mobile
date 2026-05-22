@@ -93,6 +93,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isSplash = state.matchedLocation == '/splash';
       final isCompleteProfileRoute =
           state.matchedLocation == '/auth/complete-profile';
+      print('[ROUTER] redirect: route=${state.matchedLocation}, status=${authState.status}, isAuth=$isAuthenticated, profileComplete=$isProfileComplete');
 
       // Afficher le splash pendant l'initialisation
       if (isInitializing && !isSplash) {
