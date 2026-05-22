@@ -134,9 +134,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     selected: true,
                     onTap: () {},
                     icon: Icons.local_shipping_outlined,
-                    title: 'Standard',
+                    title: 'Livraison standard',
                     subtitle: '3 à 5 jours ouvrés',
-                    trailing: Text('${_fmt(PricingService.deliveryFeeStandard)} FCFA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('GRATUITE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
+                    ),
                   ),
 
                   const SizedBox(height: 8),
@@ -262,7 +269,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       children: [
                         _SummaryRow(label: 'Sous-total articles (${cart.itemCount})', value: '${_fmt(subtotal)} FCFA'),
                         const SizedBox(height: 10),
-                        _SummaryRow(label: 'Frais de livraison', value: '${_fmt(plan.deliveryFee)} FCFA'),
+                        _SummaryRow(label: 'Livraison', value: 'Gratuite', color: AppColors.success),
                         if (_paymentType == PaymentType.installment && plan.hasManagementFee) ...[
                           const SizedBox(height: 10),
                           _SummaryRow(label: 'Frais de gestion', value: '${_fmt(fees)} FCFA', color: AppColors.error),

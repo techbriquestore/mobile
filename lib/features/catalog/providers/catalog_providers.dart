@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/service_locator.dart';
 import '../models/product.dart';
@@ -49,10 +51,29 @@ class CatalogFilters {
 // ─── Notifier filtres ─────────────────────────────────────────────────────────
 
 class CatalogFiltersNotifier extends Notifier<CatalogFilters> {
-  @override
-  CatalogFilters build() => const CatalogFilters();
+  Timer? _searchDebounce;
 
+  @override
+  CatalogFilters build() {
+    ref.onDispose(() => _searchDebounce?.cancel());
+    return const CatalogFilters();
+  }
+
+  /// Recherche avec debounce de 300ms pour éviter les requêtes multiples
   void setSearch(String? value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      state = state.copyWith(
+        search: value,
+        clearSearch: value == null || value.isEmpty,
+        page: 1,
+      );
+    });
+  }
+
+  /// Recherche immédiate (sans debounce) - pour bouton "Rechercher"
+  void setSearchImmediate(String? value) {
+    _searchDebounce?.cancel();
     state = state.copyWith(
       search: value,
       clearSearch: value == null || value.isEmpty,

@@ -85,8 +85,8 @@ class CartScreen extends ConsumerWidget {
   Widget _buildCartContent(
       BuildContext context, WidgetRef ref, cart, CartNotifier cartNotifier) {
     final subtotal = ref.watch(cartSubtotalProvider);
-    const deliveryFee = 15000.0;
-    final total = subtotal + deliveryFee;
+    // Livraison gratuite - incluse dans le prix des briques
+    final total = subtotal;
 
     return Column(
       children: [
@@ -108,13 +108,12 @@ class CartScreen extends ConsumerWidget {
             },
           ),
         ),
-        _buildSummary(context, subtotal, deliveryFee, total),
+        _buildSummary(context, subtotal, total),
       ],
     );
   }
 
-  Widget _buildSummary(
-      BuildContext context, double subtotal, double deliveryFee, double total) {
+  Widget _buildSummary(BuildContext context, double subtotal, double total) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
       decoration: BoxDecoration(
@@ -136,9 +135,25 @@ class CartScreen extends ConsumerWidget {
           _PriceRow(
               label: 'Sous-total', value: '${_formatPrice(subtotal)} FCFA'),
           const SizedBox(height: 8),
-          _PriceRow(
-              label: 'Livraison (estimée)',
-              value: '${_formatPrice(deliveryFee)} FCFA'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Livraison',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text('Gratuite',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success)),
+              ),
+            ],
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Divider(height: 1),

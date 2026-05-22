@@ -147,6 +147,15 @@ class _CreatePreorderScreenState extends State<CreatePreorderScreen> {
                           Text('Quantité', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
                           Text('$_quantity unités', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                         ]),
+                        const SizedBox(height: 8),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          Text('Livraison', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                            child: const Text('Gratuite', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.success)),
+                          ),
+                        ]),
                         const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Divider(height: 1)),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           const Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),

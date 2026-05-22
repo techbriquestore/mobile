@@ -13,13 +13,11 @@ import '../../data/providers/auth_providers.dart';
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String phone;
   final String? purpose;
-  final String? debugCode;
 
   const OtpVerificationScreen({
     super.key,
     required this.phone,
     this.purpose,
-    this.debugCode,
   });
 
   @override
@@ -44,13 +42,6 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   void initState() {
     super.initState();
     _startResendTimer();
-
-    // En mode dev, pré-remplir le code si disponible
-    if (widget.debugCode != null && widget.debugCode!.length == 6) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showDebugCodeSnackbar();
-      });
-    }
   }
 
   @override
@@ -76,27 +67,6 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         timer.cancel();
       }
     });
-  }
-
-  /// Affiche le code de debug en mode développement
-  void _showDebugCodeSnackbar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '🔧 Mode dev - Code OTP : ${widget.debugCode}',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: Colors.orange.shade700,
-        duration: const Duration(seconds: 10),
-        action: SnackBarAction(
-          label: 'Copier',
-          textColor: Colors.white,
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: widget.debugCode!));
-          },
-        ),
-      ),
-    );
   }
 
   /// Récupère le code OTP complet
@@ -154,7 +124,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     });
 
     try {
-      final result = await ref.read(authProvider.notifier).requestOtp(
+      await ref.read(authProvider.notifier).requestOtp(
             widget.phone,
           );
 
@@ -162,26 +132,12 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
       _startResendTimer();
 
-      // Afficher le nouveau code en mode dev
-      if (result['debugCode'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '🔧 Nouveau code : ${result['debugCode']}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            backgroundColor: Colors.orange.shade700,
-            duration: const Duration(seconds: 10),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Un nouveau code a été envoyé.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Un nouveau code a été envoyé.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
     } catch (e) {
       setState(() {
         _errorMessage = _parseError(e.toString());

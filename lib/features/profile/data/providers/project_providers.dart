@@ -105,10 +105,14 @@ class ProjectNotifier extends Notifier<ProjectState> {
     }
   }
 
+  /// Créer un projet avec mise à jour optimiste
   Future<bool> createProject(Map<String, dynamic> data) async {
     try {
-      await _service.create(data);
-      await loadProjects();
+      final newProject = await _service.create(data);
+      // Mise à jour optimiste : ajouter localement sans recharger
+      state = state.copyWith(
+        projects: [...state.projects, newProject],
+      );
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: _extractError(e));
@@ -116,10 +120,14 @@ class ProjectNotifier extends Notifier<ProjectState> {
     }
   }
 
+  /// Mettre à jour un projet avec mise à jour optimiste
   Future<bool> updateProject(String id, Map<String, dynamic> data) async {
     try {
-      await _service.update(id, data);
-      await loadProjects();
+      final updated = await _service.update(id, data);
+      // Mise à jour optimiste : remplacer localement
+      state = state.copyWith(
+        projects: state.projects.map((p) => p.id == id ? updated : p).toList(),
+      );
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: _extractError(e));
@@ -127,23 +135,36 @@ class ProjectNotifier extends Notifier<ProjectState> {
     }
   }
 
+  /// Supprimer un projet avec mise à jour optimiste
   Future<bool> deleteProject(String id) async {
+    // Sauvegarde pour rollback en cas d'erreur
+    final backup = state.projects;
+    // Mise à jour optimiste immédiate
+    state = state.copyWith(
+      projects: state.projects.where((p) => p.id != id).toList(),
+    );
     try {
       await _service.delete(id);
-      await loadProjects();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: _extractError(e));
+      // Rollback en cas d'erreur
+      state = state.copyWith(projects: backup, errorMessage: _extractError(e));
       return false;
     }
   }
 
+  /// Définir un projet par défaut avec mise à jour optimiste
   Future<bool> setDefault(String id) async {
+    // Mise à jour optimiste immédiate
+    state = state.copyWith(
+      projects: state.projects.map((p) => p.copyWith(isDefault: p.id == id)).toList(),
+    );
     try {
       await _service.setDefault(id);
-      await loadProjects();
       return true;
     } catch (e) {
+      // Recharger en cas d'erreur pour avoir l'état correct
+      await loadProjects();
       state = state.copyWith(errorMessage: _extractError(e));
       return false;
     }

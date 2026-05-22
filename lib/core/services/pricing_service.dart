@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// la cohérence entre les différents écrans et avec le backend.
 ///
 /// **Constantes métier** :
-/// - Frais de livraison : 15 000 FCFA
+/// - Frais de livraison : GRATUIT (inclus dans le prix des briques)
 /// - Acompte : 15% du total
 /// - Frais de gestion : 2% si durée > 6 mois
 /// - Paiements : 2 par mois
@@ -18,7 +18,8 @@ class PricingService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Frais de livraison standard en FCFA.
-  static const double deliveryFeeStandard = 15000;
+  /// NOTE: Livraison GRATUITE - les frais sont inclus dans le prix des briques.
+  static const double deliveryFeeStandard = 0;
 
   /// Taux de l'acompte initial (15%).
   static const double depositRate = 0.15;

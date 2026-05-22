@@ -159,14 +159,6 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
     return 'Une erreur est survenue. Veuillez réessayer.';
   }
 
-  /// Masque partiellement le numéro de téléphone
-  String _maskPhone(String phone) {
-    if (phone.length < 6) return phone;
-    final start = phone.substring(0, 4);
-    final end = phone.substring(phone.length - 2);
-    return '$start****$end';
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -219,72 +211,6 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                       fontSize: 15,
                       color: Colors.grey.shade600,
                       height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Numéro de téléphone déjà vérifié
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.phone_android,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Numéro de téléphone',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  final authState = ref.watch(authProvider);
-                                  final user = authState.user;
-                                  final phone = user?.phone ?? '';
-                                  return Text(
-                                    _maskPhone(phone),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.check_circle,
-                          color: AppColors.success,
-                          size: 24,
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 32),

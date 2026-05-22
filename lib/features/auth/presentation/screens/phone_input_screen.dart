@@ -69,8 +69,6 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
         extra: {
           'phone': _phoneController.text.trim(),
           'purpose': result['purpose'],
-          // En mode dev, le code est retourné pour faciliter les tests
-          'debugCode': result['debugCode'],
         },
       );
     } catch (e) {

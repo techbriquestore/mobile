@@ -105,10 +105,14 @@ class AddressNotifier extends Notifier<AddressState> {
     }
   }
 
+  /// Créer une adresse avec mise à jour optimiste
   Future<bool> createAddress(Map<String, dynamic> data) async {
     try {
-      await _service.create(data);
-      await loadAddresses();
+      final newAddress = await _service.create(data);
+      // Mise à jour optimiste : ajouter localement sans recharger
+      state = state.copyWith(
+        addresses: [...state.addresses, newAddress],
+      );
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: _extractError(e));
@@ -116,10 +120,14 @@ class AddressNotifier extends Notifier<AddressState> {
     }
   }
 
+  /// Mettre à jour une adresse avec mise à jour optimiste
   Future<bool> updateAddress(String id, Map<String, dynamic> data) async {
     try {
-      await _service.update(id, data);
-      await loadAddresses();
+      final updated = await _service.update(id, data);
+      // Mise à jour optimiste : remplacer localement
+      state = state.copyWith(
+        addresses: state.addresses.map((a) => a.id == id ? updated : a).toList(),
+      );
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: _extractError(e));
@@ -127,23 +135,36 @@ class AddressNotifier extends Notifier<AddressState> {
     }
   }
 
+  /// Supprimer une adresse avec mise à jour optimiste
   Future<bool> deleteAddress(String id) async {
+    // Sauvegarde pour rollback en cas d'erreur
+    final backup = state.addresses;
+    // Mise à jour optimiste immédiate
+    state = state.copyWith(
+      addresses: state.addresses.where((a) => a.id != id).toList(),
+    );
     try {
       await _service.delete(id);
-      await loadAddresses();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: _extractError(e));
+      // Rollback en cas d'erreur
+      state = state.copyWith(addresses: backup, errorMessage: _extractError(e));
       return false;
     }
   }
 
+  /// Définir une adresse par défaut avec mise à jour optimiste
   Future<bool> setDefault(String id) async {
+    // Mise à jour optimiste immédiate
+    state = state.copyWith(
+      addresses: state.addresses.map((a) => a.copyWith(isDefault: a.id == id)).toList(),
+    );
     try {
       await _service.setDefault(id);
-      await loadAddresses();
       return true;
     } catch (e) {
+      // Recharger en cas d'erreur pour avoir l'état correct
+      await loadAddresses();
       state = state.copyWith(errorMessage: _extractError(e));
       return false;
     }

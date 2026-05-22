@@ -142,7 +142,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return OtpVerificationScreen(
             phone: extra['phone'] as String? ?? '',
             purpose: extra['purpose'] as String?,
-            debugCode: extra['debugCode'] as String?,
           );
         },
       ),
