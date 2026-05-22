@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
@@ -93,9 +92,9 @@ class AuthNotifier extends Notifier<AuthState> {
         _apiClient.setTokens(access: accessToken, refresh: refreshToken);
 
         try {
-          // Timeout de 5 secondes pour éviter le blocage
+          // Timeout de 10 secondes (Render free tier peut être lent)
           final user = await _authService.getCurrentUser().timeout(
-            const Duration(seconds: 5),
+            const Duration(seconds: 10),
             onTimeout: () => throw Exception('Timeout'),
           );
           state = AuthState(
@@ -106,20 +105,26 @@ class AuthNotifier extends Notifier<AuthState> {
             isProfileComplete: profileComplete || (user.firstName != null && user.lastName != null),
           );
         } catch (_) {
-          // Token expiré mais on a un refresh token → garder authentifié
-          // Le routeur redirigera vers complete-profile si nécessaire
-          state = AuthState(
-            status: AuthStatus.authenticated,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-            isProfileComplete: profileComplete,
-          );
+          if (profileComplete) {
+            // Profil complet → garder authentifié, le refresh token gérera la suite
+            state = AuthState(
+              status: AuthStatus.authenticated,
+              accessToken: accessToken,
+              refreshToken: refreshToken,
+              isProfileComplete: true,
+            );
+          } else {
+            // Profil incomplet ET backend injoignable → impossible de continuer
+            // Forcer le redémarrage du flux d'authentification
+            _apiClient.clearTokens();
+            await _clearTokens();
+            state = const AuthState(status: AuthStatus.unauthenticated);
+          }
         }
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
     } catch (e) {
-      // En cas d'erreur, on considère l'utilisateur comme non authentifié
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
@@ -381,6 +386,11 @@ class AuthNotifier extends Notifier<AuthState> {
   }) async {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
 
+    // S'assurer que le token est défini dans l'apiClient
+    if (_apiClient.accessToken == null && state.accessToken != null) {
+      _apiClient.setTokens(access: state.accessToken, refresh: state.refreshToken);
+    }
+
     try {
       final response = await _apiClient.patch(
         '/auth/complete-profile',
@@ -401,9 +411,9 @@ class AuthNotifier extends Notifier<AuthState> {
       // Mettre à jour le token et le statut
       _apiClient.setTokens(access: accessToken, refresh: state.refreshToken);
       
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kAccessToken, accessToken);
-      await prefs.setBool(_kProfileComplete, true);
+      // Sauvegarder avec _secureStorage (cohérent avec _initializeAuth)
+      await _secureStorage.write(key: _kAccessToken, value: accessToken);
+      await _secureStorage.writeBool(key: _kProfileComplete, value: true);
 
       state = state.copyWith(
         status: AuthStatus.authenticated,
@@ -413,10 +423,18 @@ class AuthNotifier extends Notifier<AuthState> {
 
       return data;
     } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        errorMessage: _extractErrorMessage(e),
-      );
+      final errorMsg = _extractErrorMessage(e);
+      // Si le token est invalide (401), redémarrer le flux d'authentification
+      if (errorMsg.contains('non authentifié') || errorMsg.contains('Unauthorized') || e is UnauthorizedException) {
+        _apiClient.clearTokens();
+        await _clearTokens();
+        state = const AuthState(status: AuthStatus.unauthenticated);
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          errorMessage: errorMsg,
+        );
+      }
       rethrow;
     }
   }

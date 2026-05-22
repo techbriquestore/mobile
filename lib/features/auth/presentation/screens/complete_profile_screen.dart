@@ -137,8 +137,8 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
 
       if (!mounted) return;
 
-      // Profil complété → aller au catalogue
-      context.go('/');
+      // Profil complété → aller à l'accueil
+      context.go('/home');
     } catch (e) {
       if (!mounted) return;
       setState(() {

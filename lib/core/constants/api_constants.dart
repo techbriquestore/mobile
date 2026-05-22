@@ -8,7 +8,9 @@
   static const String productionUrl = 'https://backend-43ba.onrender.com/api/v1'; // Backend déployé sur Render
 
   // Bascule entre local et production → change à true pour utiliser le backend déployé
-  static const bool useProduction = false;
+  // NOTE: Émulateur Android ne peut pas se connecter au backend local (10.0.2.2 ne fonctionne pas)
+  // Utiliser production (Render) pour tester sur émulateur
+  static const bool useProduction = true;
 
   // URL utilisée selon la plateforme et le flag useProduction
   // Utiliser devUrl pour Chrome/Web (localhost)

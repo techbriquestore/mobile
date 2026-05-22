@@ -122,8 +122,8 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       final profileComplete = result['profileComplete'] as bool? ?? false;
 
       if (profileComplete) {
-        // Profil complet → aller au catalogue
-        context.go('/');
+        // Profil complet → aller à l'accueil
+        context.go('/home');
       } else {
         // Profil incomplet → aller à l'écran de complétion
         context.go('/auth/complete-profile');
