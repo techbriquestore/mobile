@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/order.dart';
 import '../../data/providers/order_providers.dart';
+import '../../../invoices/data/invoice_service.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -459,51 +460,113 @@ class _OrderDetailBody extends ConsumerWidget {
           ),
         ],
       ),
-      // ─── Bottom Bar - Payer ─────────────────────────────────────────
-      bottomNavigationBar: hasInstallments && order.remainingAmount > 0
-          ? Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4)),
-                ],
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final nextAmount = _getNextInstallmentAmount();
-                    context.push('/payment', extra: {
-                      'amount': nextAmount,
-                      'orderId': order.id,
-                      'isFirstPayment': false,
-                      'totalInstallments': order.paymentDuration,
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.payment, size: 20),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Payer ${_formatAmount(_getNextInstallmentAmount())} FCFA',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
+      // ─── Bottom Bar - Payer / Télécharger facture ─────────────────────
+      bottomNavigationBar: _buildBottomBar(context, ref, hasInstallments),
+    );
+  }
+
+  Widget? _buildBottomBar(BuildContext context, WidgetRef ref, bool hasInstallments) {
+    final canPay = hasInstallments && order.remainingAmount > 0;
+    final canDownloadInvoice = order.status == OrderStatus.delivered || order.totalPaid > 0;
+
+    if (!canPay && !canDownloadInvoice) return null;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton télécharger facture
+          if (canDownloadInvoice)
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: () => _downloadInvoice(context, ref),
+                icon: const Icon(Icons.download_rounded, size: 20),
+                label: const Text('Télécharger la facture', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
-            )
-          : null,
+            ),
+          
+          if (canDownloadInvoice && canPay) const SizedBox(height: 10),
+          
+          // Bouton payer
+          if (canPay)
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: () {
+                  final nextAmount = _getNextInstallmentAmount();
+                  context.push('/payment', extra: {
+                    'amount': nextAmount,
+                    'orderId': order.id,
+                    'isFirstPayment': false,
+                    'totalInstallments': order.paymentDuration,
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.payment, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Payer ${_formatAmount(_getNextInstallmentAmount())} FCFA',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _downloadInvoice(BuildContext context, WidgetRef ref) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              SizedBox(width: 12),
+              Text('Téléchargement de la facture...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      final invoiceService = ref.read(invoiceServiceProvider);
+      await invoiceService.downloadOrderInvoice(order.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildStatusTimeline(OrderModel order, DateFormat dateFormat) {

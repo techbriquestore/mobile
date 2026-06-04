@@ -135,6 +135,62 @@ class ProjectModel {
       default: return status;
     }
   }
+
+  ProjectModel copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? status,
+    int? budget,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? label,
+    String? fullAddress,
+    String? landmarks,
+    String? city,
+    String? commune,
+    double? gpsLat,
+    double? gpsLng,
+    String? contactName,
+    String? contactPhone,
+    String? driverInstructions,
+    String? relayContactName,
+    String? relayContactPhone,
+    bool? isDefault,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    ProjectKpis? kpis,
+    List<ProjectOrderSummary>? orders,
+    List<ProjectPreorderSummary>? preorders,
+  }) {
+    return ProjectModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      status: status ?? this.status,
+      budget: budget ?? this.budget,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      label: label ?? this.label,
+      fullAddress: fullAddress ?? this.fullAddress,
+      landmarks: landmarks ?? this.landmarks,
+      city: city ?? this.city,
+      commune: commune ?? this.commune,
+      gpsLat: gpsLat ?? this.gpsLat,
+      gpsLng: gpsLng ?? this.gpsLng,
+      contactName: contactName ?? this.contactName,
+      contactPhone: contactPhone ?? this.contactPhone,
+      driverInstructions: driverInstructions ?? this.driverInstructions,
+      relayContactName: relayContactName ?? this.relayContactName,
+      relayContactPhone: relayContactPhone ?? this.relayContactPhone,
+      isDefault: isDefault ?? this.isDefault,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      kpis: kpis ?? this.kpis,
+      orders: orders ?? this.orders,
+      preorders: preorders ?? this.preorders,
+    );
+  }
 }
 
 class ProjectKpis {

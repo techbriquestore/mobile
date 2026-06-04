@@ -87,4 +87,42 @@ class AddressModel {
     parts.add(city);
     return parts.join(', ');
   }
+
+  AddressModel copyWith({
+    String? id,
+    String? label,
+    String? fullAddress,
+    String? landmarks,
+    String? city,
+    String? commune,
+    double? gpsLat,
+    double? gpsLng,
+    String? contactName,
+    String? contactPhone,
+    String? driverInstructions,
+    String? relayContactName,
+    String? relayContactPhone,
+    bool? isDefault,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return AddressModel(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      fullAddress: fullAddress ?? this.fullAddress,
+      landmarks: landmarks ?? this.landmarks,
+      city: city ?? this.city,
+      commune: commune ?? this.commune,
+      gpsLat: gpsLat ?? this.gpsLat,
+      gpsLng: gpsLng ?? this.gpsLng,
+      contactName: contactName ?? this.contactName,
+      contactPhone: contactPhone ?? this.contactPhone,
+      driverInstructions: driverInstructions ?? this.driverInstructions,
+      relayContactName: relayContactName ?? this.relayContactName,
+      relayContactPhone: relayContactPhone ?? this.relayContactPhone,
+      isDefault: isDefault ?? this.isDefault,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

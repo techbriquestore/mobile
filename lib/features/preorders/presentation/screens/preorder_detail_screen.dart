@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/providers/preorder_providers.dart';
 import '../../domain/models/preorder.dart';
+import '../../../invoices/data/invoice_service.dart';
 
 class PreorderDetailScreen extends ConsumerWidget {
   final String preorderId;
@@ -542,6 +543,35 @@ class _ScheduleRow extends ConsumerWidget {
     }
   }
 
+  Future<void> _downloadScheduleInvoice(BuildContext context, WidgetRef ref, String scheduleId) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              SizedBox(width: 12),
+              Text('Téléchargement de la facture...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      final invoiceService = ref.read(invoiceServiceProvider);
+      await invoiceService.downloadScheduleInvoice(scheduleId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isPaid = schedule.status == 'PAID';
@@ -590,6 +620,20 @@ class _ScheduleRow extends ConsumerWidget {
         ])),
         if (isPaid)
           Row(mainAxisSize: MainAxisSize.min, children: [
+            // Bouton télécharger facture
+            IconButton(
+              onPressed: () => _downloadScheduleInvoice(context, ref, schedule.id),
+              icon: const Icon(Icons.download_rounded, size: 18),
+              color: AppColors.primary,
+              tooltip: 'Télécharger la facture',
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 8),
             Icon(Icons.check_circle_rounded, size: 16, color: AppColors.success),
             const SizedBox(width: 4),
             Text(
