@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/providers/preorder_providers.dart';
 import '../../domain/models/preorder.dart';
 import '../../../invoices/data/invoice_service.dart';
+import '../../../invoices/providers/invoice_providers.dart';
 
 class PreorderDetailScreen extends ConsumerWidget {
   final String preorderId;
@@ -558,8 +559,8 @@ class _ScheduleRow extends ConsumerWidget {
         ),
       );
       
-      final invoiceService = ref.read(invoiceServiceProvider);
-      await invoiceService.downloadScheduleInvoice(scheduleId);
+      final invoiceDownloadService = ref.read(invoiceDownloadServiceProvider);
+      await invoiceDownloadService.downloadAndOpenScheduleInvoice(scheduleId);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
