@@ -7,7 +7,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/order.dart';
 import '../../data/providers/order_providers.dart';
 import '../../../invoices/data/invoice_service.dart';
-import '../../../invoices/providers/invoice_providers.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -556,8 +555,8 @@ class _OrderDetailBody extends ConsumerWidget {
         ),
       );
       
-      final invoiceDownloadService = ref.read(invoiceDownloadServiceProvider);
-      await invoiceDownloadService.downloadAndOpenOrderInvoice(order.id);
+      final invoiceService = ref.read(invoiceServiceProvider);
+      await invoiceService.downloadOrderInvoice(order.id);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
