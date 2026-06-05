@@ -46,6 +46,9 @@ dependencies:
   flutter_svg: ^2.2.3
   url_launcher: ^6.3.2
   pin_code_fields: ^9.0.0
+  path_provider: ^2.1.4
+  open_filex: ^4.5.0
+  share_plus: ^10.0.2
   intl: ^0.20.2
   equatable: ^2.0.8
   freezed_annotation: ^3.1.0
