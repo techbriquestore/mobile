@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/providers/preorder_providers.dart';
 import '../../domain/models/preorder.dart';
 import '../../../invoices/data/invoice_service.dart';
+import '../../../invoices/presentation/screens/pdf_viewer_screen.dart';
 
 class PreorderDetailScreen extends ConsumerWidget {
   final String preorderId;
@@ -554,14 +555,30 @@ class _ScheduleRow extends ConsumerWidget {
               Text('Téléchargement de la facture...'),
             ],
           ),
-          duration: Duration(seconds: 2),
+          duration: Duration(seconds: 10),
         ),
       );
       
       final invoiceService = ref.read(invoiceServiceProvider);
-      await invoiceService.downloadScheduleInvoice(scheduleId);
+      final pdfBytes = await invoiceService.downloadScheduleInvoice(scheduleId);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        
+        // Naviguer vers l'écran de visualisation PDF
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(
+              pdfBytes: pdfBytes,
+              title: 'Facture d\'acompte',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),

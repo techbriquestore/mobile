@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/order.dart';
 import '../../data/providers/order_providers.dart';
 import '../../../invoices/data/invoice_service.dart';
+import '../../../invoices/presentation/screens/pdf_viewer_screen.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -551,14 +552,30 @@ class _OrderDetailBody extends ConsumerWidget {
               Text('Téléchargement de la facture...'),
             ],
           ),
-          duration: Duration(seconds: 2),
+          duration: Duration(seconds: 10),
         ),
       );
       
       final invoiceService = ref.read(invoiceServiceProvider);
-      await invoiceService.downloadOrderInvoice(order.id);
+      final pdfBytes = await invoiceService.downloadOrderInvoice(order.id);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        
+        // Naviguer vers l'écran de visualisation PDF
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(
+              pdfBytes: pdfBytes,
+              title: 'Facture - ${order.orderNumber}',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
