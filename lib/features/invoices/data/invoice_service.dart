@@ -20,7 +20,8 @@ class InvoiceService {
         '/invoices/order/$orderId/download',
         options: Options(
           responseType: ResponseType.bytes,
-          receiveTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 120),
+          sendTimeout: const Duration(seconds: 30),
         ),
       );
       
@@ -43,6 +44,7 @@ class InvoiceService {
       return bytes;
     } on DioException catch (e) {
       debugPrint('❌ DioException: ${e.type}, ${e.message}');
+      debugPrint('❌ Error: ${e.error}');
       debugPrint('❌ Response: ${e.response?.statusCode} - ${e.response?.data}');
       
       if (e.response?.statusCode == 404) {
@@ -51,8 +53,16 @@ class InvoiceService {
         throw Exception('Session expirée, veuillez vous reconnecter');
       } else if (e.response?.statusCode == 500) {
         throw Exception('Erreur serveur lors de la génération du PDF');
+      } else if (e.type == DioExceptionType.connectionTimeout || 
+                 e.type == DioExceptionType.receiveTimeout) {
+        throw Exception('Le serveur met trop de temps à répondre. Réessayez.');
+      } else if (e.type == DioExceptionType.connectionError) {
+        throw Exception('Impossible de se connecter au serveur');
       }
-      throw Exception('Erreur réseau: ${e.message ?? e.type.name}');
+      
+      // Capturer l'erreur réelle
+      final errorMsg = e.error?.toString() ?? e.message ?? e.type.name;
+      throw Exception('Erreur: $errorMsg');
     } catch (e) {
       debugPrint('❌ Exception: $e');
       throw Exception('Erreur: $e');
