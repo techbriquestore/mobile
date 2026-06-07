@@ -468,7 +468,9 @@ class _OrderDetailBody extends ConsumerWidget {
 
   Widget? _buildBottomBar(BuildContext context, WidgetRef ref, bool hasInstallments) {
     final canPay = hasInstallments && order.remainingAmount > 0;
-    final canDownloadInvoice = order.status == OrderStatus.delivered || order.totalPaid > 0;
+    final canDownloadInvoice = order.status != OrderStatus.pendingValidation &&
+        order.status != OrderStatus.cancelled &&
+        order.status != OrderStatus.returned;
 
     if (!canPay && !canDownloadInvoice) return null;
 
