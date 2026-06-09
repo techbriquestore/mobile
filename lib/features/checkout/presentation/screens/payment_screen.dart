@@ -21,6 +21,8 @@ class PaymentScreen extends ConsumerStatefulWidget {
   final String? scheduleId;     // Si non-null → paiement d'une échéance
   final String? preorderId;     // Si non-null → pré-commande associée
   final int? scheduleIndex;     // Numéro du versement (affichage)
+  final double? maxAmount;      // Montant maximum autorisé (total restant)
+  final int? remainingSchedules; // Nombre d'échéances restantes
 
   const PaymentScreen({
     super.key,
@@ -31,6 +33,8 @@ class PaymentScreen extends ConsumerStatefulWidget {
     this.scheduleId,
     this.preorderId,
     this.scheduleIndex,
+    this.maxAmount,
+    this.remainingSchedules,
   });
 
   @override
@@ -335,14 +339,34 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                                   decoration: InputDecoration(
                                     labelText: 'Montant à payer',
                                     suffixText: 'FCFA',
+                                    errorText: _customAmount > (widget.maxAmount ?? double.infinity)
+                                        ? 'Maximum : ${_fmt(widget.maxAmount!)} F'
+                                        : null,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                      borderSide: BorderSide(
+                                        color: _customAmount > (widget.maxAmount ?? double.infinity)
+                                            ? AppColors.error
+                                            : Colors.grey.shade300,
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                      borderSide: BorderSide(
+                                        color: _customAmount > (widget.maxAmount ?? double.infinity)
+                                            ? AppColors.error
+                                            : AppColors.primary,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(color: AppColors.error),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(color: AppColors.error, width: 2),
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   ),
@@ -355,17 +379,35 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.08),
+                                color: _customAmount > (widget.maxAmount ?? double.infinity)
+                                    ? AppColors.error.withValues(alpha: 0.08)
+                                    : AppColors.success.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.check_circle, size: 18, color: AppColors.success),
+                                  Icon(
+                                    _customAmount > (widget.maxAmount ?? double.infinity)
+                                        ? Icons.error
+                                        : Icons.check_circle,
+                                    size: 18,
+                                    color: _customAmount > (widget.maxAmount ?? double.infinity)
+                                        ? AppColors.error
+                                        : AppColors.success,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Surplus de ${_fmt(_customAmount - widget.amount)} F sera déduit des prochaines échéances',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success),
+                                      _customAmount > (widget.maxAmount ?? double.infinity)
+                                          ? 'Montant trop élevé ! Maximum autorisé : ${_fmt(widget.maxAmount!)} F (${widget.remainingSchedules ?? 0} échéance(s) restante(s))'
+                                          : 'Surplus de ${_fmt(_customAmount - widget.amount)} F sera déduit des prochaines échéances',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: _customAmount > (widget.maxAmount ?? double.infinity)
+                                            ? AppColors.error
+                                            : AppColors.success,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -373,9 +415,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                             ),
                           ],
                           const SizedBox(height: 8),
-                          Text(
-                            'Minimum : ${_fmt(widget.amount)} FCFA',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Minimum : ${_fmt(widget.amount)} FCFA',
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              ),
+                              if (widget.maxAmount != null)
+                                Text(
+                                  'Maximum : ${_fmt(widget.maxAmount!)} FCFA',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -550,7 +602,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             child: SizedBox(
               width: double.infinity, height: 56,
               child: ElevatedButton(
-                onPressed: _isProcessing ? null : _processPayment,
+                onPressed: _isProcessing || (_isSchedulePayment && _customAmount > (widget.maxAmount ?? double.infinity))
+                    ? null
+                    : _processPayment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary, foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey.shade300,

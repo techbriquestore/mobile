@@ -678,13 +678,26 @@ class _ScheduleRow extends ConsumerWidget {
               ],
               ElevatedButton.icon(
                 onPressed: isPayable
-                    ? () => context.push('/payment', extra: {
-                        'amount': schedule.amount.toDouble(),
-                        'orderId': '',
-                        'scheduleId': schedule.id,
-                        'preorderId': preorderId,
-                        'scheduleIndex': index,
-                      })
+                    ? () {
+                        // Calculer le montant total restant (échéance actuelle + suivantes non payées)
+                        final remainingSchedules = allSchedules.where((s) => 
+                          !s.isPaid && s.dueDate.isAfter(schedule.dueDate) || s.id == schedule.id
+                        ).toList();
+                        final maxAmount = remainingSchedules.fold<double>(
+                          0.0,
+                          (sum, s) => sum + s.amount.toDouble(),
+                        );
+                        
+                        context.push('/payment', extra: {
+                          'amount': schedule.amount.toDouble(),
+                          'orderId': '',
+                          'scheduleId': schedule.id,
+                          'preorderId': preorderId,
+                          'scheduleIndex': index,
+                          'maxAmount': maxAmount,
+                          'remainingSchedules': remainingSchedules.length,
+                        });
+                      }
                     : null,
                 icon: const Icon(Icons.payment_rounded, size: 16),
                 label: Text('${_fmt(schedule.amount.toDouble())} F'),
