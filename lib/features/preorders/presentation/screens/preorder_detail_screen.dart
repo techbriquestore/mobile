@@ -683,8 +683,8 @@ class _ScheduleRow extends ConsumerWidget {
                 onPressed: isPayable
                     ? () {
                         // Calculer le montant total restant (échéance actuelle + suivantes non payées)
-                        final remainingSchedules = allSchedules.where((s) => 
-                          !s.isPaid && s.dueDate.isAfter(schedule.dueDate) || s.id == schedule.id
+                        final remainingSchedules = allSchedules.where((s) =>
+                          s.status != 'PAID' && s.status != 'CANCELLED' && (s.dueDate.isAfter(schedule.dueDate) || s.id == schedule.id)
                         ).toList();
                         final maxAmount = remainingSchedules.fold<double>(
                           0.0,
