@@ -449,6 +449,7 @@ class _PreorderDetailBody extends ConsumerWidget {
                     preorderId: preorder.id,
                     canPay: canPaySchedules,
                     depositPercentage: preorder.depositPercentage,
+                    allSchedules: schedules,
                   );
                 }),
               ],
@@ -504,6 +505,7 @@ class _ScheduleRow extends ConsumerWidget {
   final String preorderId;
   final bool canPay;
   final int depositPercentage;
+  final List<PreorderSchedule> allSchedules;
 
   const _ScheduleRow({
     required this.index,
@@ -513,6 +515,7 @@ class _ScheduleRow extends ConsumerWidget {
     required this.preorderId,
     this.canPay = true,
     this.depositPercentage = 15,
+    required this.allSchedules,
   });
 
   Color get _color {
