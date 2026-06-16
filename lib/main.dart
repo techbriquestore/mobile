@@ -5,10 +5,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/di/service_locator.dart';
+import 'core/services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ServiceLocator.init();
+  
+  // Initialiser les notifications push
+  final pushNotificationService = PushNotificationService();
+  await pushNotificationService.initialize();
 
   runApp(const ProviderScope(child: BriquesStoreApp()));
 }
