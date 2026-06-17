@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../../firebase_options.dart';
+import '../di/service_locator.dart';
 
 /// Service de gestion des notifications push Firebase Cloud Messaging
 class PushNotificationService {
@@ -75,16 +76,22 @@ class PushNotificationService {
   /// Enregistre le token FCM auprès du backend
   Future<void> _registerToken(String token) async {
     try {
-      // TODO: Appeler l'API backend pour enregistrer le token
-      // POST /api/v1/push-notifications/register
-      // Body: { token: token, platform: _getPlatform() }
+      // Utiliser l'ApiClient qui gère automatiquement l'authentification
+      await ServiceLocator.apiClient.post(
+        '/push-notifications/register',
+        data: {
+          'token': token,
+          'platform': _getPlatform(),
+        },
+      );
       
       if (kDebugMode) {
-        print('Token à enregistrer: $token');
+        print('✅ Token FCM enregistré: ${token.substring(0, 20)}...');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Erreur enregistrement token: $e');
+        print('❌ Erreur enregistrement token: $e');
+        // L'utilisateur n'est peut-être pas connecté, on réessaiera plus tard
       }
     }
   }
