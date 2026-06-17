@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/providers/core_providers.dart';
+import '../../../../core/services/push_notification_service.dart';
 import '../../../../core/services/secure_token_storage.dart';
 import '../services/auth_service.dart';
 
@@ -150,6 +151,10 @@ class AuthNotifier extends Notifier<AuthState> {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       );
+      
+      // Enregistrer le token FCM après connexion réussie
+      _registerFcmToken();
+      
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -456,6 +461,25 @@ class AuthNotifier extends Notifier<AuthState> {
         );
       }
       rethrow;
+    }
+  }
+
+  /// Enregistre le token FCM auprès du backend après connexion
+  Future<void> _registerFcmToken() async {
+    try {
+      final pushService = PushNotificationService();
+      final token = await pushService.getToken();
+      if (token != null) {
+        await _apiClient.post(
+          '/push-notifications/register',
+          data: {
+            'token': token,
+            'platform': 'android', // TODO: détecter la plateforme
+          },
+        );
+      }
+    } catch (e) {
+      // Ignorer les erreurs d'enregistrement FCM
     }
   }
 
