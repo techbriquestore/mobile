@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "89621587939",
-    "project_id": "briquesstore",
-    "storage_bucket": "briquesstore.firebasestorage.app"
+    "project_number": "612574040257",
+    "project_id": "briquesstore-29b48",
+    "storage_bucket": "briquesstore-29b48.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:89621587939:android:2e818f9174439a5148e2d6",
+        "mobilesdk_app_id": "1:612574040257:android:71f42f62121f06aee50440",
         "android_client_info": {
           "package_name": "com.briques.store.briques_store"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB_aNf1tOERl9CsmPuNQPByBr9CE3-v9KI"
+          "current_key": "AIzaSyBFfLnvr4HV_B_YO-pku_SksDp2UmVUlkg"
         }
       ],
       "services": {
