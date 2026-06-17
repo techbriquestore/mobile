@@ -43,3 +43,14 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Import Firebase BoM (Bill of Materials)
+    implementation(platform("com.google.firebase:firebase-bom:34.14.1"))
+    
+    // Firebase Cloud Messaging
+    implementation("com.google.firebase:firebase-messaging")
+    
+    // Firebase Analytics (optionnel)
+    implementation("com.google.firebase:firebase-analytics")
+}
