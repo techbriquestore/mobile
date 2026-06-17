@@ -1,10 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import '../../firebase_options.dart';
 
 /// Service de gestion des notifications push Firebase Cloud Messaging
 class PushNotificationService {
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  FirebaseMessaging? _messaging;
   bool _initialized = false;
 
   /// Initialise Firebase et FCM
@@ -12,13 +13,17 @@ class PushNotificationService {
     if (_initialized) return;
 
     try {
-      // Initialiser Firebase (vérifier si déjà initialisé)
+      // Initialiser Firebase avec les options de configuration
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
       }
+      
+      _messaging = FirebaseMessaging.instance;
 
       // Demander la permission pour les notifications
-      NotificationSettings settings = await _messaging.requestPermission(
+      NotificationSettings settings = await _messaging!.requestPermission(
         alert: true,
         badge: true,
         sound: true,
@@ -29,7 +34,7 @@ class PushNotificationService {
       }
 
       // Obtenir le token FCM
-      String? token = await _messaging.getToken();
+      String? token = await _messaging!.getToken();
       if (token != null) {
         if (kDebugMode) {
           print('FCM Token: $token');
@@ -38,7 +43,7 @@ class PushNotificationService {
       }
 
       // Écouter les refresh de token
-      _messaging.onTokenRefresh.listen((newToken) {
+      _messaging!.onTokenRefresh.listen((newToken) {
         if (kDebugMode) {
           print('Token refreshed: $newToken');
         }
@@ -113,11 +118,11 @@ class PushNotificationService {
 
   /// Obtient le token FCM actuel
   Future<String?> getToken() async {
-    return await _messaging.getToken();
+    return await _messaging?.getToken();
   }
 
   /// Supprime le token FCM (pour logout)
   Future<void> deleteToken() async {
-    await _messaging.deleteToken();
+    await _messaging?.deleteToken();
   }
 }

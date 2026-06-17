@@ -11,14 +11,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ServiceLocator.init();
   
-  // Initialiser les notifications push (non-bloquant)
+  // Initialiser les notifications push
   try {
     final pushNotificationService = PushNotificationService();
-    pushNotificationService.initialize().catchError((error) {
-      debugPrint('Erreur initialisation Firebase: $error');
-    });
-  } catch (e) {
-    debugPrint('Erreur création PushNotificationService: $e');
+    await pushNotificationService.initialize();
+    debugPrint('✅ Firebase initialisé avec succès');
+  } catch (e, stackTrace) {
+    debugPrint('❌ Erreur initialisation Firebase: $e');
+    debugPrint('StackTrace: $stackTrace');
+    // L'app continue même si Firebase échoue
   }
 
   runApp(const ProviderScope(child: BriquesStoreApp()));
