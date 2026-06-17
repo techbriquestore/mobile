@@ -11,9 +11,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ServiceLocator.init();
   
-  // Initialiser les notifications push
-  final pushNotificationService = PushNotificationService();
-  await pushNotificationService.initialize();
+  // Initialiser les notifications push (non-bloquant)
+  try {
+    final pushNotificationService = PushNotificationService();
+    pushNotificationService.initialize().catchError((error) {
+      debugPrint('Erreur initialisation Firebase: $error');
+    });
+  } catch (e) {
+    debugPrint('Erreur création PushNotificationService: $e');
+  }
 
   runApp(const ProviderScope(child: BriquesStoreApp()));
 }

@@ -12,8 +12,10 @@ class PushNotificationService {
     if (_initialized) return;
 
     try {
-      // Initialiser Firebase
-      await Firebase.initializeApp();
+      // Initialiser Firebase (vérifier si déjà initialisé)
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
 
       // Demander la permission pour les notifications
       NotificationSettings settings = await _messaging.requestPermission(
