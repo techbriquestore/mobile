@@ -1,10 +1,10 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/providers/core_providers.dart';
+import '../../../../core/services/push_notification_service.dart';
 import '../../../../core/services/secure_token_storage.dart';
 import '../services/auth_service.dart';
 
@@ -106,6 +106,9 @@ class AuthNotifier extends Notifier<AuthState> {
             refreshToken: refreshToken,
             isProfileComplete: profileComplete || user.isProfileComplete,
           );
+          
+          // Réenregistrer le token FCM (utilisateur déjà connecté au redémarrage)
+          _registerFcmToken();
         } catch (_) {
           if (profileComplete) {
             // Profil complet → garder authentifié, le refresh token gérera la suite
@@ -201,6 +204,9 @@ class AuthNotifier extends Notifier<AuthState> {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       );
+      
+      _registerFcmToken();
+      
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -226,6 +232,9 @@ class AuthNotifier extends Notifier<AuthState> {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       );
+      
+      _registerFcmToken();
+      
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -257,6 +266,9 @@ class AuthNotifier extends Notifier<AuthState> {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       );
+      
+      _registerFcmToken();
+      
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -465,33 +477,12 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Enregistre le token FCM auprès du backend après connexion
+  /// Demande les permissions et enregistre le token FCM après connexion
   Future<void> _registerFcmToken() async {
     try {
-      // Utiliser FirebaseMessaging.instance directement
-      final messaging = FirebaseMessaging.instance;
-      final token = await messaging.getToken();
-      
-      if (token != null) {
-        debugPrint('📱 FCM Token obtenu: ${token.substring(0, 20)}...');
-        
-        final platform = defaultTargetPlatform == TargetPlatform.android 
-            ? 'android' 
-            : defaultTargetPlatform == TargetPlatform.iOS 
-                ? 'ios' 
-                : 'web';
-        
-        await _apiClient.post(
-          '/push-notifications/register',
-          data: {
-            'token': token,
-            'platform': platform,
-          },
-        );
-        debugPrint('✅ Token FCM enregistré avec succès');
-      } else {
-        debugPrint('⚠️ Pas de token FCM disponible');
-      }
+      debugPrint('📱 Demande permissions et enregistrement FCM...');
+      final pushService = PushNotificationService();
+      await pushService.requestPermissionAndRegisterToken();
     } catch (e) {
       debugPrint('❌ Erreur enregistrement FCM: $e');
     }

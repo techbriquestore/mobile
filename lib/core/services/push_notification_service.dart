@@ -9,7 +9,8 @@ class PushNotificationService {
   FirebaseMessaging? _messaging;
   bool _initialized = false;
 
-  /// Initialise Firebase et FCM
+  /// Initialise Firebase SEULEMENT (sans demander permissions ni token)
+  /// À appeler au démarrage de l'app
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -22,6 +23,37 @@ class PushNotificationService {
       }
       
       _messaging = FirebaseMessaging.instance;
+
+      // Écouter les messages en premier plan
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (kDebugMode) {
+          print('Message reçu en premier plan: ${message.notification?.title}');
+        }
+      });
+
+      // Écouter les messages quand l'app est en arrière-plan
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        if (kDebugMode) {
+          print('Message ouvert depuis arrière-plan: ${message.notification?.title}');
+        }
+      });
+
+      _initialized = true;
+      if (kDebugMode) {
+        print('✅ Firebase initialisé (sans permissions)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Erreur initialisation FCM: $e');
+      }
+    }
+  }
+
+  /// Demande les permissions et enregistre le token FCM
+  /// À appeler APRÈS la connexion de l'utilisateur
+  Future<void> requestPermissionAndRegisterToken() async {
+    try {
+      _messaging ??= FirebaseMessaging.instance;
 
       // Demander la permission pour les notifications
       NotificationSettings settings = await _messaging!.requestPermission(
@@ -50,25 +82,9 @@ class PushNotificationService {
         }
         _registerToken(newToken);
       });
-
-      // Écouter les messages en premier plan
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        if (kDebugMode) {
-          print('Message reçu en premier plan: ${message.notification?.title}');
-        }
-      });
-
-      // Écouter les messages quand l'app est en arrière-plan
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        if (kDebugMode) {
-          print('Message ouvert depuis arrière-plan: ${message.notification?.title}');
-        }
-      });
-
-      _initialized = true;
     } catch (e) {
       if (kDebugMode) {
-        print('Erreur initialisation FCM: $e');
+        print('Erreur demande permission/token: $e');
       }
     }
   }
