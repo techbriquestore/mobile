@@ -393,6 +393,9 @@ class AuthNotifier extends Notifier<AuthState> {
         isProfileComplete: profileComplete,
       );
 
+      // Enregistrer le token FCM après connexion OTP réussie
+      _registerFcmToken();
+
       return data;
     } catch (e) {
       state = state.copyWith(

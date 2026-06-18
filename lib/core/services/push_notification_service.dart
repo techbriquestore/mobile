@@ -52,8 +52,11 @@ class PushNotificationService {
   /// Demande les permissions et enregistre le token FCM
   /// À appeler APRÈS la connexion de l'utilisateur
   Future<void> requestPermissionAndRegisterToken() async {
+    debugPrint('📱 [FCM] Début requestPermissionAndRegisterToken');
+    
     try {
       _messaging ??= FirebaseMessaging.instance;
+      debugPrint('📱 [FCM] FirebaseMessaging instance obtenue');
 
       // Demander la permission pour les notifications
       NotificationSettings settings = await _messaging!.requestPermission(
@@ -62,38 +65,42 @@ class PushNotificationService {
         sound: true,
       );
 
-      if (kDebugMode) {
-        print('Permission status: ${settings.authorizationStatus}');
+      debugPrint('📱 [FCM] Permission status: ${settings.authorizationStatus}');
+
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        debugPrint('❌ [FCM] Permission refusée par l\'utilisateur');
+        return;
       }
 
       // Obtenir le token FCM
+      debugPrint('📱 [FCM] Récupération du token...');
       String? token = await _messaging!.getToken();
+      
       if (token != null) {
-        if (kDebugMode) {
-          print('FCM Token: $token');
-        }
+        debugPrint('📱 [FCM] Token obtenu: ${token.substring(0, 30)}...');
         await _registerToken(token);
+      } else {
+        debugPrint('❌ [FCM] Token est null - Google Play Services peut-être absent ou pas à jour');
       }
 
       // Écouter les refresh de token
       _messaging!.onTokenRefresh.listen((newToken) {
-        if (kDebugMode) {
-          print('Token refreshed: $newToken');
-        }
+        debugPrint('📱 [FCM] Token refreshed: ${newToken.substring(0, 30)}...');
         _registerToken(newToken);
       });
-    } catch (e) {
-      if (kDebugMode) {
-        print('Erreur demande permission/token: $e');
-      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ [FCM] Erreur demande permission/token: $e');
+      debugPrint('❌ [FCM] StackTrace: $stackTrace');
     }
   }
 
   /// Enregistre le token FCM auprès du backend
   Future<void> _registerToken(String token) async {
+    debugPrint('📱 [FCM] Envoi du token au backend...');
+    
     try {
       // Utiliser l'ApiClient qui gère automatiquement l'authentification
-      await ServiceLocator.apiClient.post(
+      final response = await ServiceLocator.apiClient.post(
         '/push-notifications/register',
         data: {
           'token': token,
@@ -101,14 +108,10 @@ class PushNotificationService {
         },
       );
       
-      if (kDebugMode) {
-        print('✅ Token FCM enregistré: ${token.substring(0, 20)}...');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ Erreur enregistrement token: $e');
-        // L'utilisateur n'est peut-être pas connecté, on réessaiera plus tard
-      }
+      debugPrint('✅ [FCM] Token enregistré avec succès! Response: ${response.statusCode}');
+    } catch (e, stackTrace) {
+      debugPrint('❌ [FCM] Erreur enregistrement token: $e');
+      debugPrint('❌ [FCM] StackTrace: $stackTrace');
     }
   }
 
