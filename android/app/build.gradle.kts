@@ -25,10 +25,11 @@ android {
         applicationId = "com.briques.store.briques_store"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion  // Firebase requiert au minimum SDK 21, on met 23 pour plus de compatibilité
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     buildTypes {
