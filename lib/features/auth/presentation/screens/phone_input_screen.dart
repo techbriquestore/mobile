@@ -41,11 +41,6 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
 
     // Nettoyer le numéro (enlever espaces, tirets, parenthèses, points)
     String cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\.]'), '');
-    
-    // Enlever le 0 initial si présent (format local)
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1);
-    }
 
     // Vérifier que c'est uniquement des chiffres
     if (!RegExp(r'^\d+$').hasMatch(cleaned)) {
@@ -105,13 +100,17 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     final length = _selectedCountry.minLength;
     // Générer un placeholder avec des X
     final digits = 'X' * length;
-    // Formater avec des espaces tous les 2-3 chiffres
-    if (length <= 8) {
-      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
+    // Formater avec des espaces pour améliorer la lisibilité
+    if (length == 10) {
+      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
     } else if (length == 9) {
       return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+    } else if (length == 8) {
+      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
+    } else if (length == 7) {
+      return '${digits.substring(0, 3)} ${digits.substring(3)}';
     } else {
-      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
+      return digits;
     }
   }
 
