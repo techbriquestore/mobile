@@ -74,6 +74,18 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   /// Récupère le code OTP complet
   String get _code => _controllers.map((c) => c.text).join();
 
+  /// Gère la suppression d'un chiffre
+  void _handleDelete(int index) {
+    if (index > 0) {
+      _controllers[index].clear();
+      _focusNodes[index - 1].requestFocus();
+      _controllers[index - 1].clear();
+    } else {
+      _controllers[index].clear();
+    }
+    setState(() {});
+  }
+
   /// Vérifie le code OTP
   Future<void> _verifyOtp() async {
     if (_code.length < 6) return;
@@ -252,56 +264,77 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   return SizedBox(
                     width: 48,
                     height: 56,
-                    child: TextFormField(
-                      controller: _controllers[i],
-                      focusNode: _focusNodes[i],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        counterText: '',
-                        filled: true,
-                        fillColor: const Color(0xFFF7F7F7),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.error,
-                            width: 1,
-                          ),
-                        ),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty && i < 5) {
-                          _focusNodes[i + 1].requestFocus();
+                    child: Focus(
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.backspace) {
+                            if (_controllers[i].text.isEmpty && i > 0) {
+                              _handleDelete(i);
+                              return KeyEventResult.handled;
+                            }
+                          }
                         }
-                        if (value.isEmpty && i > 0) {
-                          _focusNodes[i - 1].requestFocus();
-                        }
-                        setState(() {});
-
-                        // Vérifier automatiquement quand tous les chiffres sont saisis
-                        if (_code.length == 6) {
-                          _verifyOtp();
-                        }
+                        return KeyEventResult.ignored;
                       },
+                      child: TextFormField(
+                        controller: _controllers[i],
+                        focusNode: _focusNodes[i],
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        maxLength: 1,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          counterText: '',
+                          filled: true,
+                          fillColor: const Color(0xFFF7F7F7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.error,
+                              width: 1,
+                            ),
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty && i < 5) {
+                            _focusNodes[i + 1].requestFocus();
+                          }
+                          if (value.isEmpty && i > 0) {
+                            _focusNodes[i - 1].requestFocus();
+                          }
+                          setState(() {});
+
+                          // Vérifier automatiquement quand tous les chiffres sont saisis
+                          if (_code.length == 6) {
+                            _verifyOtp();
+                          }
+                        },
+                        onTap: () {
+                          // Sélectionner tout le texte quand on clique sur un champ déjà rempli
+                          if (_controllers[i].text.isNotEmpty) {
+                            _controllers[i].selection = TextSelection.fromPosition(
+                              TextPosition(offset: 0),
+                            );
+                          }
+                        },
+                      ),
                     ),
                   );
                 }),
