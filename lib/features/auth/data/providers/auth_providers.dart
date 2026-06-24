@@ -328,13 +328,21 @@ class AuthNotifier extends Notifier<AuthState> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Demande un code OTP pour le numéro de téléphone
-  Future<Map<String, dynamic>> requestOtp(String phone, {String channel = 'SMS'}) async {
+  Future<Map<String, dynamic>> requestOtp(
+    String phone, {
+    String countryCode = 'CI',
+    String channel = 'SMS',
+  }) async {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
 
     try {
       final response = await _apiClient.post(
         '/auth/request-otp',
-        data: {'phone': phone, 'channel': channel},
+        data: {
+          'phone': phone,
+          'countryCode': countryCode,
+          'channel': channel,
+        },
       );
       state = state.copyWith(status: AuthStatus.unauthenticated);
       return response.data as Map<String, dynamic>;
@@ -351,6 +359,7 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<Map<String, dynamic>> verifyOtp(
     String phone,
     String code, {
+    String countryCode = 'CI',
     String? deviceName,
     String? deviceOs,
   }) async {
@@ -362,6 +371,7 @@ class AuthNotifier extends Notifier<AuthState> {
         data: {
           'phone': phone,
           'code': code,
+          'countryCode': countryCode,
           if (deviceName != null) 'deviceName': deviceName,
           if (deviceOs != null) 'deviceOs': deviceOs,
         },

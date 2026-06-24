@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/data/countries.dart';
+import '../../../../core/widgets/country_picker.dart';
 import '../../data/providers/auth_providers.dart';
 
 /// Écran de saisie du numéro de téléphone pour l'authentification OTP.
@@ -23,6 +25,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _errorMessage;
+  Country _selectedCountry = defaultCountry;
 
   @override
   void dispose() {
@@ -30,18 +33,31 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     super.dispose();
   }
 
-  /// Valide le format du numéro de téléphone
+  /// Valide le format du numéro de téléphone selon le pays sélectionné
   String? _validatePhone(String? value) {
     if (value == null || value.isEmpty) {
       return 'Veuillez entrer votre numéro de téléphone';
     }
 
-    // Nettoyer le numéro (enlever espaces, tirets, parenthèses)
-    final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    // Nettoyer le numéro (enlever espaces, tirets, parenthèses, points)
+    String cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\.]'), '');
+    
+    // Enlever le 0 initial si présent (format local)
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
 
-    // Vérifier le format : 10 chiffres commençant par 07, 05 ou 01
-    if (!RegExp(r'^0[157]\d{8}$').hasMatch(cleaned)) {
-      return 'Numéro invalide. Format : 07XXXXXXXX (10 chiffres)';
+    // Vérifier que c'est uniquement des chiffres
+    if (!RegExp(r'^\d+$').hasMatch(cleaned)) {
+      return 'Le numéro ne doit contenir que des chiffres';
+    }
+
+    // Vérifier la longueur selon le pays
+    if (cleaned.length < _selectedCountry.minLength) {
+      return 'Le numéro doit contenir au moins ${_selectedCountry.minLength} chiffres';
+    }
+    if (cleaned.length > _selectedCountry.maxLength) {
+      return 'Le numéro ne doit pas dépasser ${_selectedCountry.maxLength} chiffres';
     }
 
     return null;
@@ -59,6 +75,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     try {
       final result = await ref.read(authProvider.notifier).requestOtp(
             _phoneController.text.trim(),
+            countryCode: _selectedCountry.code,
           );
 
       if (!mounted) return;
@@ -68,6 +85,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
         '/auth/verify-otp',
         extra: {
           'phone': _phoneController.text.trim(),
+          'countryCode': _selectedCountry.code,
           'purpose': result['purpose'],
         },
       );
@@ -79,6 +97,21 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  /// Génère un hint pour le champ de saisie selon le pays
+  String _getPhoneHint() {
+    final length = _selectedCountry.minLength;
+    // Générer un placeholder avec des X
+    final digits = 'X' * length;
+    // Formater avec des espaces tous les 2-3 chiffres
+    if (length <= 8) {
+      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
+    } else if (length == 9) {
+      return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+    } else {
+      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
     }
   }
 
@@ -153,90 +186,67 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // Champ de saisie du numéro
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  validator: _validatePhone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[\d\+\s\-]')),
-                    LengthLimitingTextInputFormatter(15),
-                  ],
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Numéro de téléphone',
-                    hintText: '07 XX XX XX XX',
-                    prefixIcon: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Drapeau Côte d'Ivoire
-                          Container(
-                            width: 28,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(color: const Color(0xFFF77F00)),
-                                  ),
-                                  Expanded(
-                                    child: Container(color: Colors.white),
-                                  ),
-                                  Expanded(
-                                    child: Container(color: const Color(0xFF009E60)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '+225',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
+                // Champ de saisie du numéro avec sélecteur de pays
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Sélecteur de pays
+                    CountryPicker(
+                      selectedCountry: _selectedCountry,
+                      onCountryChanged: (country) {
+                        setState(() {
+                          _selectedCountry = country;
+                          _errorMessage = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    // Champ de saisie du numéro
+                    Expanded(
+                      child: TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        validator: _validatePhone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[\d\s\-]')),
+                          LengthLimitingTextInputFormatter(15),
                         ],
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Numéro de téléphone',
+                          hintText: _getPhoneHint(),
+                          filled: true,
+                          fillColor: const Color(0xFFF7F7F7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.error,
+                              width: 1,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
+                          ),
+                        ),
                       ),
                     ),
-                    filled: true,
-                    fillColor: const Color(0xFFF7F7F7),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: AppColors.primary,
-                        width: 2,
-                      ),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: AppColors.error,
-                        width: 1,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 18,
-                    ),
-                  ),
+                  ],
                 ),
 
                 // Message d'erreur

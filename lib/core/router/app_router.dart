@@ -141,6 +141,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           return OtpVerificationScreen(
             phone: extra['phone'] as String? ?? '',
+            countryCode: extra['countryCode'] as String? ?? 'CI',
             purpose: extra['purpose'] as String?,
           );
         },

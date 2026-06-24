@@ -8,15 +8,17 @@ import '../../data/providers/auth_providers.dart';
 
 /// Écran de vérification du code OTP à 6 chiffres.
 ///
-/// Reçoit le numéro de téléphone et le purpose (INSCRIPTION ou CONNEXION)
+/// Reçoit le numéro de téléphone, le code pays et le purpose (INSCRIPTION ou CONNEXION)
 /// via les paramètres de navigation.
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String phone;
+  final String countryCode;
   final String? purpose;
 
   const OtpVerificationScreen({
     super.key,
     required this.phone,
+    this.countryCode = 'CI',
     this.purpose,
   });
 
@@ -85,6 +87,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       final result = await ref.read(authProvider.notifier).verifyOtp(
             widget.phone,
             _code,
+            countryCode: widget.countryCode,
           );
 
       if (!mounted) return;
@@ -126,6 +129,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     try {
       await ref.read(authProvider.notifier).requestOtp(
             widget.phone,
+            countryCode: widget.countryCode,
           );
 
       if (!mounted) return;
