@@ -6,6 +6,7 @@ import '../../../../core/utils/color_utils.dart';
 import '../../../cart/data/providers/cart_provider.dart';
 import '../../../catalog/models/product.dart';
 import '../../../catalog/providers/catalog_providers.dart';
+import '../../../notifications/data/providers/notification_providers.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -59,10 +60,29 @@ class HomeScreen extends ConsumerWidget {
             color: AppColors.textPrimary,
             onPressed: () => context.push('/search'),
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, size: 24),
-            color: AppColors.textPrimary,
-            onPressed: () => context.push('/notifications'),
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, size: 24),
+                color: AppColors.textPrimary,
+                onPressed: () => context.push('/notifications'),
+              ),
+              if ((ref.watch(unreadCountProvider).asData?.value ?? 0) > 0)
+                Positioned(
+                  right: 6, top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                    child: Center(
+                      child: Text(
+                        '${ref.watch(unreadCountProvider).asData?.value ?? 0}',
+                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           Stack(
             children: [
