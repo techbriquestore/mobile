@@ -4,10 +4,28 @@ import 'package:flutter/foundation.dart';
 import '../../firebase_options.dart';
 import '../di/service_locator.dart';
 
-/// Service de gestion des notifications push Firebase Cloud Messaging
+/// Service de gestion des notifications push Firebase Cloud Messaging.
+///
+/// Distingue deux familles de payloads (champ `data.category`) :
+///  - TRANSACTIONAL : on NE fait PAS confiance au contenu du payload pour
+///    l'affichage in-app → on déclenche un refetch via [onTransactionalReceived]
+///    (le centre de notifications est la source de vérité). Au tap, deep-link.
+///  - BROADCAST : marketing éphémère → au tap, on enregistre l'ouverture via
+///    [onBroadcastOpened] et on ouvre un éventuel deep-link. Jamais stocké in-app.
 class PushNotificationService {
   FirebaseMessaging? _messaging;
   bool _initialized = false;
+
+  // ── Hooks branchés depuis main.dart (découplage core ↔ features) ──
+  /// Appelé à l'arrivée d'un push transactionnel (app au premier plan) →
+  /// rafraîchir le badge et la liste.
+  static void Function()? onTransactionalReceived;
+
+  /// Appelé pour ouvrir une route de deep-link (tap sur une notification).
+  static void Function(String route)? onOpenRoute;
+
+  /// Appelé quand un broadcast est ouvert (tap) → enregistrer la métrique.
+  static void Function(String campaignId)? onBroadcastOpened;
 
   /// Initialise Firebase SEULEMENT (sans demander permissions ni token)
   /// À appeler au démarrage de l'app
@@ -24,19 +42,17 @@ class PushNotificationService {
       
       _messaging = FirebaseMessaging.instance;
 
-      // Écouter les messages en premier plan
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        if (kDebugMode) {
-          print('Message reçu en premier plan: ${message.notification?.title}');
-        }
-      });
+      // Premier plan : message reçu pendant que l'app est ouverte.
+      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-      // Écouter les messages quand l'app est en arrière-plan
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        if (kDebugMode) {
-          print('Message ouvert depuis arrière-plan: ${message.notification?.title}');
-        }
-      });
+      // Tap sur la notification depuis l'arrière-plan.
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
+
+      // Démarrage à froid via le tap sur une notification.
+      final initialMessage = await _messaging!.getInitialMessage();
+      if (initialMessage != null) {
+        _handleOpenedMessage(initialMessage);
+      }
 
       _initialized = true;
       if (kDebugMode) {
@@ -46,6 +62,44 @@ class PushNotificationService {
       if (kDebugMode) {
         print('Erreur initialisation FCM: $e');
       }
+    }
+  }
+
+  /// Message reçu au premier plan : on refetch pour les transactionnelles.
+  void _handleForegroundMessage(RemoteMessage message) {
+    final data = message.data;
+    final category = data['category'] ?? '';
+    if (kDebugMode) {
+      print('FCM premier plan [$category]: ${message.notification?.title}');
+    }
+    if (category != 'BROADCAST') {
+      // TRANSACTIONAL : ne jamais afficher depuis le payload → refetch API.
+      onTransactionalReceived?.call();
+    }
+    // Les broadcasts au premier plan : rien (éphémère, pas de centre in-app).
+  }
+
+  /// Tap sur la notification (arrière-plan ou démarrage à froid).
+  void _handleOpenedMessage(RemoteMessage message) {
+    final data = message.data;
+    final category = data['category'] ?? '';
+    if (kDebugMode) {
+      print('FCM ouvert [$category]: ${message.notification?.title}');
+    }
+
+    if (category == 'BROADCAST') {
+      final campaignId = data['campaignId'];
+      if (campaignId is String && campaignId.isNotEmpty) {
+        onBroadcastOpened?.call(campaignId);
+      }
+    } else {
+      // Transactionnel : rafraîchir l'état puis router.
+      onTransactionalReceived?.call();
+    }
+
+    final route = data['deepLink'];
+    if (route is String && route.isNotEmpty) {
+      onOpenRoute?.call(route);
     }
   }
 
@@ -115,19 +169,21 @@ class PushNotificationService {
     }
   }
 
-  /// Supprime le token FCM (logout)
-  Future<void> unregisterToken(String token) async {
+  /// Supprime le token FCM côté backend ET côté Firebase (à la déconnexion).
+  /// Si aucun token n'est fourni, récupère le token courant.
+  Future<void> unregisterToken([String? token]) async {
     try {
-      // TODO: Appeler l'API backend pour supprimer le token
-      // DELETE /api/v1/push-notifications/unregister/:token
-      
-      if (kDebugMode) {
-        print('Token à supprimer: $token');
+      final fcmToken = token ?? await _messaging?.getToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await ServiceLocator.apiClient.delete(
+          '/push-notifications/unregister/$fcmToken',
+        );
+        debugPrint('✅ [FCM] Token supprimé du backend');
       }
+      // Invalider le token côté appareil pour ne plus rien recevoir.
+      await _messaging?.deleteToken();
     } catch (e) {
-      if (kDebugMode) {
-        print('Erreur suppression token: $e');
-      }
+      debugPrint('❌ [FCM] Erreur suppression token: $e');
     }
   }
 

@@ -68,6 +68,11 @@ class NotificationsScreen extends ConsumerWidget {
             onPressed: () => _markAll(ref),
             child: const Text('Tout lire', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600)),
           ),
+          IconButton(
+            icon: const Icon(Icons.tune, size: 22, color: AppColors.textPrimary),
+            tooltip: 'Préférences',
+            onPressed: () => context.push('/notifications/preferences'),
+          ),
         ],
       ),
       body: RefreshIndicator(

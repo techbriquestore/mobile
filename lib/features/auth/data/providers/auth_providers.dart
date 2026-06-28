@@ -280,6 +280,13 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Supprimer le token FCM côté backend AVANT de purger l'auth
+    // (l'appel DELETE nécessite encore le token d'accès).
+    try {
+      await PushNotificationService().unregisterToken();
+    } catch (_) {
+      // best-effort : ne pas bloquer la déconnexion
+    }
     _apiClient.clearTokens();
     await _clearTokens();
     await _authService.signOutGoogle();

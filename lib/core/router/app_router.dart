@@ -23,6 +23,7 @@ import '../../features/profile/presentation/screens/project_detail_screen.dart';
 import '../../features/profile/presentation/screens/payment_history_screen.dart';
 import '../../features/simulator/presentation/screens/simulator_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
+import '../../features/notifications/presentation/screens/notification_preferences_screen.dart';
 import '../../features/support/presentation/screens/support_screen.dart';
 import '../../features/support/presentation/screens/faq_screen.dart';
 import '../../features/support/presentation/screens/claim_screen.dart';
@@ -39,6 +40,10 @@ import '../../features/profile/presentation/screens/change_password_screen.dart'
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../shared/layouts/main_shell.dart';
 import '../../shared/widgets/splash_screen.dart';
+
+/// Clé de navigation racine, utilisée notamment pour le deep-link depuis
+/// les notifications push (FCM) hors d'un BuildContext de widget.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class AuthNotifierForRouter extends ChangeNotifier {
   AuthNotifierForRouter(this._ref) {
@@ -71,6 +76,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.watch(_authNotifierForRouterProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     debugLogDiagnostics: true,
     refreshListenable: authNotifier,
@@ -208,6 +214,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/preorders/:preorderId', name: 'preorderDetail', builder: (_, state) => PreorderDetailScreen(preorderId: state.pathParameters['preorderId']!)),
       GoRoute(path: '/order-tracking/:orderId', name: 'orderTracking', builder: (_, state) => OrderTrackingScreen(orderId: state.pathParameters['orderId']!)),
       GoRoute(path: '/notifications', name: 'notifications', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: '/notifications/preferences', name: 'notificationPreferences', builder: (_, __) => const NotificationPreferencesScreen()),
       GoRoute(path: '/support', name: 'support', builder: (_, __) => const SupportScreen()),
       GoRoute(path: '/faq', name: 'faq', builder: (_, __) => const FaqScreen()),
       GoRoute(path: '/legal', name: 'legal', builder: (_, __) => const LegalScreen()),
