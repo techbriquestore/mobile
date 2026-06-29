@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/dialog_utils.dart';
+import '../../../../shared/widgets/info_modal.dart';
 import '../../data/providers/auth_providers.dart';
 
 /// Écran de vérification du code OTP à 6 chiffres.
@@ -34,7 +36,6 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   bool _isVerifying = false;
-  String? _errorMessage;
 
   /// Compte à rebours pour le renvoi du code
   int _resendCountdown = 60;
@@ -90,10 +91,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   Future<void> _verifyOtp() async {
     if (_code.length < 6) return;
 
-    setState(() {
-      _isVerifying = true;
-      _errorMessage = null;
-    });
+    setState(() => _isVerifying = true);
 
     try {
       final result = await ref.read(authProvider.notifier).verifyOtp(
@@ -114,14 +112,18 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         context.go('/auth/complete-profile');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = _parseError(e.toString());
-        // Vider les champs en cas d'erreur
-        for (final c in _controllers) {
-          c.clear();
-        }
-        _focusNodes[0].requestFocus();
-      });
+      // Vider les champs en cas d'erreur
+      for (final c in _controllers) {
+        c.clear();
+      }
+      _focusNodes[0].requestFocus();
+      if (mounted) {
+        DialogUtils.showError(
+          context,
+          title: 'Code invalide',
+          message: _parseError(e.toString()),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isVerifying = false);
@@ -133,10 +135,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   Future<void> _resendOtp() async {
     if (_resendCountdown > 0) return;
 
-    setState(() {
-      _isVerifying = true;
-      _errorMessage = null;
-    });
+    setState(() => _isVerifying = true);
 
     try {
       await ref.read(authProvider.notifier).requestOtp(
@@ -148,16 +147,19 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
       _startResendTimer();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Un nouveau code a été envoyé.'),
-          backgroundColor: AppColors.success,
-        ),
+      InfoModal.showSuccess(
+        context,
+        title: 'Code envoyé',
+        message: 'Un nouveau code a été envoyé sur votre téléphone.',
       );
     } catch (e) {
-      setState(() {
-        _errorMessage = _parseError(e.toString());
-      });
+      if (mounted) {
+        DialogUtils.showError(
+          context,
+          title: 'Envoi impossible',
+          message: _parseError(e.toString()),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isVerifying = false);
@@ -339,37 +341,6 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   );
                 }),
               ),
-
-              // Message d'erreur
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: AppColors.error,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: AppColors.error,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
 
               const SizedBox(height: 32),
 

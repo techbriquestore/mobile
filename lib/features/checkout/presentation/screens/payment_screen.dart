@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/utils/dialog_utils.dart';
+import '../../../../shared/widgets/info_modal.dart';
 import '../../../auth/data/providers/auth_providers.dart';
 import '../../../cart/data/providers/cart_provider.dart';
 import '../../data/services/order_service.dart' as checkout;
@@ -48,7 +50,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final _amountCtrl = TextEditingController();
   bool _isProcessing = false;
   _PaymentStatus _status = _PaymentStatus.idle;
-  String? _errorMessage;
   String? _realOrderId;
   String? _realOrderNumber;
   bool _isPreorderCreation = false; // Set à true si on vient de créer une précommande
@@ -105,18 +106,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // Check if user is authenticated
     final authState = ref.read(authProvider);
     if (!authState.isAuthenticated) {
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(const SnackBar(
-          content: Text('Veuillez vous connecter pour passer une commande'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ));
-      context.push('/auth/phone');
+      InfoModal.showWarning(
+        context,
+        title: 'Connexion requise',
+        message: 'Veuillez vous connecter pour passer une commande.',
+      ).then((_) => context.push('/auth/phone'));
       return;
     }
     
-    setState(() { _isProcessing = true; _status = _PaymentStatus.processing; _errorMessage = null; });
+    setState(() { _isProcessing = true; _status = _PaymentStatus.processing; });
 
     try {
       final orderService = checkout.OrderService(ServiceLocator.apiClient);
@@ -229,15 +227,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       setState(() {
         _isProcessing = false;
         _status = _PaymentStatus.idle;
-        _errorMessage = e.toString();
       });
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(
-          content: Text('Erreur : $_errorMessage'),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 4),
-        ));
+      DialogUtils.showError(
+        context,
+        title: 'Paiement échoué',
+        message: DialogUtils.extractErrorMessage(e),
+      );
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/data/countries.dart';
 import '../../../../core/widgets/country_picker.dart';
+import '../../../../core/utils/dialog_utils.dart';
 import '../../data/providers/auth_providers.dart';
 
 /// Écran de saisie du numéro de téléphone pour l'authentification OTP.
@@ -24,7 +25,6 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  String? _errorMessage;
   Country _selectedCountry = defaultCountry;
 
   @override
@@ -62,10 +62,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
   Future<void> _requestOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final result = await ref.read(authProvider.notifier).requestOtp(
@@ -85,9 +82,13 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
         },
       );
     } catch (e) {
-      setState(() {
-        _errorMessage = _parseError(e.toString());
-      });
+      if (mounted) {
+        DialogUtils.showError(
+          context,
+          title: 'Envoi impossible',
+          message: _parseError(e.toString()),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -193,10 +194,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                     CountryPicker(
                       selectedCountry: _selectedCountry,
                       onCountryChanged: (country) {
-                        setState(() {
-                          _selectedCountry = country;
-                          _errorMessage = null;
-                        });
+                        setState(() => _selectedCountry = country);
                       },
                     ),
                     const SizedBox(width: 12),
@@ -247,37 +245,6 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                     ),
                   ],
                 ),
-
-                // Message d'erreur
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: AppColors.error,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                              color: AppColors.error,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
 
                 const SizedBox(height: 32),
 
